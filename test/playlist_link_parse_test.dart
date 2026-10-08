@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/library/playlist_link.dart';
+import 'package:her_music_desktop/features/library/playlist_link.dart';
 
 String _fixture(String name) =>
     File('test/fixtures/$name').readAsStringSync();

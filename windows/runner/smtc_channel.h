@@ -7,7 +7,7 @@
 
 #include <memory>
 
-namespace lastwave {
+namespace her_music {
 
 // Windows System Media Transport Controls (SMTC) bridge — the Windows
 // counterpart to the Linux MPRIS endpoint.
@@ -31,6 +31,6 @@ class SmtcChannel {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace lastwave
+}  // namespace her_music
 
 #endif  // RUNNER_SMTC_CHANNEL_H_

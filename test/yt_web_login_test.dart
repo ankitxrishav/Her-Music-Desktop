@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/innertube/yt_web_login.dart';
+import 'package:her_music_desktop/features/innertube/yt_web_login.dart';
 
 void main() {
   test('detects the passkey verification stall text', () {

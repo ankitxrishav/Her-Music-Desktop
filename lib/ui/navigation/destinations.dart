@@ -27,7 +27,7 @@ const waveOfflineDestinations = [
 ];
 
 const waveSystemDestinations = [
-  WaveDestination('/connect', 'Connect', FluentIcons.heart),
+  WaveDestination('/connect', 'Couple Space', FluentIcons.heart),
   WaveDestination('/friends', 'Friends', WaveIcons.friends),
   WaveDestination('/settings', 'Settings', WaveIcons.settings),
 ];

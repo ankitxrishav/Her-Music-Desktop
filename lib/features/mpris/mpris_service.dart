@@ -9,7 +9,7 @@ import '../../core/audio/stream_models.dart';
 import '../player/playback_service.dart';
 import '../player/player_state.dart';
 
-const _busName = 'org.mpris.MediaPlayer2.lastwave';
+const _busName = 'org.mpris.MediaPlayer2.her_music';
 const _rootIface = 'org.mpris.MediaPlayer2';
 const _playerIface = 'org.mpris.MediaPlayer2.Player';
 
@@ -138,7 +138,7 @@ class _MprisObject extends DBusObject {
     'CanRaise': DBusBoolean(true),
     'HasTrackList': DBusBoolean(false),
     'Identity': DBusString('Her Music'),
-    'DesktopEntry': DBusString('lastwave'),
+    'DesktopEntry': DBusString('her_music'),
     'SupportedUriSchemes': DBusArray.string(const <String>[]),
     'SupportedMimeTypes': DBusArray.string(const <String>[]),
   };
@@ -152,7 +152,7 @@ class _MprisObject extends DBusObject {
       _trackKey = key;
       _trackId = key.isEmpty
           ? '/org/mpris/MediaPlayer2/TrackList/NoTrack'
-          : '/org/lastwave/track/${++_trackSeq}';
+          : '/org/her_music/track/${++_trackSeq}';
     }
     _snap = next;
 

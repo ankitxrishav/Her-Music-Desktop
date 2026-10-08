@@ -1,4 +1,7 @@
+import 'dart:ffi' hide Size;
 import 'dart:io';
+
+import 'package:ffi/ffi.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
@@ -13,6 +16,7 @@ import 'package:window_manager/window_manager.dart';
 /// always starts, even on platforms missing a backend. Opaque
 /// observatory surfaces are the polished fallback.
 Future<void> setupWindow() async {
+  _setMacDockIcon();
   await _setupAcrylic();
   try {
     await windowManager.ensureInitialized();
@@ -134,5 +138,47 @@ Future<void> _setupHotkeys() async {
         keyDownHandler: (_) {},
       );
     }
+  } catch (_) {}
+}
+
+void _setMacDockIcon() {
+  if (!Platform.isMacOS) return;
+  try {
+    final candidatePaths = [
+      '${Platform.resolvedExecutable.replaceAll(RegExp(r'/Contents/MacOS/.*'), '')}/Contents/Resources/AppIcon.icns',
+      '/Applications/Her Music.app/Contents/Resources/AppIcon.icns',
+    ];
+    String? validPath;
+    for (final p in candidatePaths) {
+      if (File(p).existsSync()) {
+        validPath = p;
+        break;
+      }
+    }
+    if (validPath == null) return;
+
+    final objc = DynamicLibrary.process();
+    final objcGetClass = objc.lookupFunction<Pointer<Void> Function(Pointer<Utf8>), Pointer<Void> Function(Pointer<Utf8>)>('objcGetClass');
+    final selRegisterName = objc.lookupFunction<Pointer<Void> Function(Pointer<Utf8>), Pointer<Void> Function(Pointer<Utf8>)>('selRegisterName');
+    final msgSend = objc.lookup<NativeFunction<Pointer<Void> Function(Pointer<Void>, Pointer<Void>)>>('objc_msgSend').asFunction<Pointer<Void> Function(Pointer<Void>, Pointer<Void>)>();
+    final msgSend1 = objc.lookup<NativeFunction<Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Void>)>>('objc_msgSend').asFunction<Pointer<Void> Function(Pointer<Void>, Pointer<Void>, Pointer<Void>)>();
+
+    final nsAppClass = objcGetClass('NSApplication'.toNativeUtf8());
+    final sharedAppSel = selRegisterName('sharedApplication'.toNativeUtf8());
+    final app = msgSend(nsAppClass, sharedAppSel);
+
+    final nsImageClass = objcGetClass('NSImage'.toNativeUtf8());
+    final allocSel = selRegisterName('alloc'.toNativeUtf8());
+    final initPathSel = selRegisterName('initWithContentsOfFile:'.toNativeUtf8());
+
+    final nsStringClass = objcGetClass('NSString'.toNativeUtf8());
+    final strSel = selRegisterName('stringWithUTF8String:'.toNativeUtf8());
+    final nsPath = msgSend1(nsStringClass, strSel, validPath.toNativeUtf8().cast());
+
+    final uninitImage = msgSend(nsImageClass, allocSel);
+    final image = msgSend1(uninitImage, initPathSel, nsPath);
+
+    final setIconSel = selRegisterName('setApplicationIconImage:'.toNativeUtf8());
+    msgSend1(app, setIconSel, image);
   } catch (_) {}
 }

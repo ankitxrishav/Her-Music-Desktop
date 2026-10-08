@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/addons/dash_assembler.dart';
+import 'package:her_music_desktop/features/addons/dash_assembler.dart';
 
 const _manifest = '''
 <MPD type="static" mediaPresentationDuration="PT4M7S">

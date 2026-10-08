@@ -12,7 +12,6 @@ import '../components/menus.dart'
     show fastFlyoutTransition, WaveFlyoutPanel, WaveMenuAction, WaveMenuSeparator;
 import '../theme/haze.dart';
 import '../theme/tokens.dart';
-import '../theme/brand_icons.dart';
 import '../theme/wave_icons.dart';
 
 /// Compact 44px title / nav / search bar.
@@ -528,7 +527,7 @@ class _CommunityBtns extends StatelessWidget {
         ),
         _BarBtn(
           tooltip: 'Her Music on GitHub',
-          icon: WaveIcons.globe,
+          icon: FluentIcons.globe,
           onTap: () => _open(_githubUrl),
         ),
       ],

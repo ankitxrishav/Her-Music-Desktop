@@ -5,7 +5,7 @@
 
 #include <memory>
 
-namespace lastwave {
+namespace her_music {
 
 class WasapiChannel {
  public:
@@ -20,6 +20,6 @@ class WasapiChannel {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace lastwave
+}  // namespace her_music
 
 #endif  // RUNNER_WASAPI_CHANNEL_H_

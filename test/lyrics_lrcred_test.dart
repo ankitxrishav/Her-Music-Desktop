@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_providers.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_providers.dart';
 
 // Recorded 2026-10-06 from https://lrc.red/api/v1?q=Ed%20Sheeran%20-%20Shape%20of%20You
 const _searchPayload = {

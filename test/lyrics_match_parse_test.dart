@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_models.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_models.dart';
 
 LyricLine _line(int endMs, {int start = 0}) => LyricLine(
       timeMs: start,

@@ -1,4 +1,4 @@
-// LastWave — Limusic-grade desktop presentation layer.
+// Her Music — Limusic-grade desktop presentation layer.
 //
 // New visual system ownership:
 //   lib/ui/theme/        tokens + Fluent theme factory

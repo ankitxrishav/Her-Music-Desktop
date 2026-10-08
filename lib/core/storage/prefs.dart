@@ -195,7 +195,7 @@ class Prefs {
   Future<void> setHazeIntensity(String v) =>
       _sp.setString('lw_haze_intensity', v);
 
-  /// Accent source: 'system' | 'lastwave' | 'artwork' | 'custom'.
+  /// Accent source: 'system' | 'her_music' | 'artwork' | 'custom'.
   /// 'manual' (legacy) is treated as 'custom'. The theme controller
   /// resolves the effective accent; artwork mode tints from the current
   /// palette seed where available, otherwise falls back to custom.
@@ -315,6 +315,22 @@ class Prefs {
     'lw_addon_urls',
     jsonEncode(urls.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()),
   );
+
+  T get<T>(String key, T defaultValue) {
+    if (defaultValue is bool) return (_sp.getBool(key) ?? defaultValue) as T;
+    if (defaultValue is int) return (_sp.getInt(key) ?? defaultValue) as T;
+    if (defaultValue is double) return (_sp.getDouble(key) ?? defaultValue) as T;
+    if (defaultValue is String) return (_sp.getString(key) ?? defaultValue) as T;
+    return defaultValue;
+  }
+
+  Future<bool> set<T>(String key, T value) {
+    if (value is bool) return _sp.setBool(key, value);
+    if (value is int) return _sp.setInt(key, value);
+    if (value is double) return _sp.setDouble(key, value);
+    if (value is String) return _sp.setString(key, value);
+    return Future.value(false);
+  }
 }
 
 final prefsProvider = Provider<Prefs>((_) {

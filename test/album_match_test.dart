@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/innertube/album_match.dart';
-import 'package:lastwave_desktop/features/innertube/innertube_api.dart';
+import 'package:her_music_desktop/features/innertube/album_match.dart';
+import 'package:her_music_desktop/features/innertube/innertube_api.dart';
 
 YouTubeMusicEntity album(
   String name,

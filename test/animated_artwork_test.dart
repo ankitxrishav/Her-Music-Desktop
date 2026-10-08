@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/core/artwork/animated_artwork_service.dart';
-import 'package:lastwave_desktop/core/storage/app_database.dart';
+import 'package:her_music_desktop/core/artwork/animated_artwork_service.dart';
+import 'package:her_music_desktop/core/storage/app_database.dart';
 
 const _masterPlaylist = '''
 #EXTM3U

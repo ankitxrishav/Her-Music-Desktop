@@ -23,7 +23,7 @@
 
 #pragma comment(lib, "runtimeobject.lib")
 
-namespace lastwave {
+namespace her_music {
 namespace {
 
 using flutter::EncodableMap;
@@ -126,7 +126,7 @@ class SmtcChannel::Impl {
  public:
   Impl(flutter::BinaryMessenger* messenger, HWND hwnd) : hwnd_(hwnd) {
     channel_ = std::make_unique<flutter::MethodChannel<EncodableValue>>(
-        messenger, "lastwave/smtc",
+        messenger, "her_music/smtc",
         &flutter::StandardMethodCodec::GetInstance());
     channel_->SetMethodCallHandler(
         [this](const auto& call, auto result) { Handle(call, std::move(result)); });
@@ -266,8 +266,8 @@ class SmtcChannel::Impl {
     {
       HSTRING appId = nullptr;
       if (SUCCEEDED(WindowsCreateString(
-              kLastWaveAppUserModelId,
-              static_cast<UINT32>(wcslen(kLastWaveAppUserModelId)),
+              kHerMusicAppUserModelId,
+              static_cast<UINT32>(wcslen(kHerMusicAppUserModelId)),
               &appId))) {
         updater->put_AppMediaId(appId);
         WindowsDeleteString(appId);
@@ -403,5 +403,5 @@ SmtcChannel::SmtcChannel(flutter::BinaryMessenger* messenger, HWND hwnd)
 
 SmtcChannel::~SmtcChannel() = default;
 
-}  // namespace lastwave
+}  // namespace her_music
 

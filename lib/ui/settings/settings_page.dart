@@ -600,7 +600,7 @@ class _Appearance extends ConsumerWidget {
                 items: const [
                   ComboBoxItem(value: 'custom', child: Text('Custom colour')),
                   ComboBoxItem(
-                    value: 'lastwave',
+                    value: 'her_music',
                     child: Text('Her Music neutral'),
                   ),
                   ComboBoxItem(value: 'system', child: Text('System accent')),
@@ -1798,26 +1798,26 @@ class _About extends StatelessWidget {
               ),
               Button(
                 onPressed: () =>
-                    _open('https://t.me/clashprojects'),
+                    _open('https://github.com/ankitxrishav'),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TelegramIcon(size: 14),
                     SizedBox(width: 6),
-                    Text('Telegram community'),
+                    Text('Developer Profile'),
                   ],
                 ),
               ),
               Button(
                 onPressed: () => _open(
-                  'https://discord.com/invite/TMCEPSUNk2',
+                  'https://github.com/ankitxrishav/Her-Music-Desktop',
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DiscordIcon(size: 14),
                     SizedBox(width: 6),
-                    Text('Discord server'),
+                    Text('Project Releases'),
                   ],
                 ),
               ),

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/audio_output/dac_device.dart';
-import 'package:lastwave_desktop/features/audio_output/format_negotiator.dart';
-import 'package:lastwave_desktop/features/audio_output/output_path_status.dart';
-import 'package:lastwave_desktop/features/audio_output/pcm_format.dart';
+import 'package:her_music_desktop/features/audio_output/dac_device.dart';
+import 'package:her_music_desktop/features/audio_output/format_negotiator.dart';
+import 'package:her_music_desktop/features/audio_output/output_path_status.dart';
+import 'package:her_music_desktop/features/audio_output/pcm_format.dart';
 
 void main() {
   const negotiator = FormatNegotiator();

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_models.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_repository.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_models.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_repository.dart';
 
 LyricsResult _word(String source) => LyricsResult(
       lines: [

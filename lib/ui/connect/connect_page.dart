@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/connect/connect_models.dart';
-import '../../features/connect/connect_service.dart';
+import '../../features/connect/couple_sync_service.dart';
 import '../../features/player/playback_service.dart';
 import '../components/buttons.dart';
 import '../theme/tokens.dart';
@@ -18,24 +15,22 @@ class ConnectPage extends ConsumerStatefulWidget {
 }
 
 class _ConnectPageState extends ConsumerState<ConnectPage> {
-  late final TextEditingController _nameController;
-  final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _partnerCodeController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _chatScroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    final defaultDevice = Platform.isMacOS
-        ? 'Her Music Mac'
-        : (Platform.isWindows ? 'Her Music PC' : 'Her Music Desktop');
-    _nameController = TextEditingController(text: defaultDevice);
+    final sync = ref.read(coupleSyncProvider);
+    if (sync.myName.isNotEmpty) { _nameController.text = sync.myName; }
   }
 
   @override
   void dispose() {
+    _partnerCodeController.dispose();
     _nameController.dispose();
-    _codeController.dispose();
     _chatController.dispose();
     _chatScroll.dispose();
     super.dispose();
@@ -55,11 +50,12 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
 
   @override
   Widget build(BuildContext context) {
-    final connect = ref.watch(connectServiceProvider);
+    final sync = ref.watch(coupleSyncProvider);
+    final player = ref.watch(playbackServiceProvider);
     final dark = waveIsDark(context);
     final accent = waveAccent(context);
 
-    ref.listen<RoomSessionState>(connectServiceProvider, (prev, next) {
+    ref.listen<CoupleSyncState>(coupleSyncProvider, (prev, next) {
       if (prev?.messages.length != next.messages.length) {
         _scrollToBottom();
       }
@@ -72,13 +68,13 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF43F5E).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xFFFF4081).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 FluentIcons.heart,
-                color: Color(0xFFF43F5E),
-                size: 20,
+                color: Color(0xFFFF4081),
+                size: 22,
               ),
             ),
             const SizedBox(width: 12),
@@ -86,13 +82,34 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Connect & Listen Together',
-                    style: WaveType.pageTitle),
+                Row(
+                  children: [
+                    const Text('Couple Space', style: WaveType.pageTitle),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: sync.isPaired
+                            ? const Color(0x3310B981)
+                            : const Color(0x33FF4081),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        sync.isPaired ? 'PAIRED 💕' : 'LINK SPACE',
+                        style: TextStyle(
+                          color: sync.isPaired
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFFF4081),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 Text(
-                  'Real-time synced music between macOS, Windows, and Android',
-                  style: WaveType.caption.copyWith(
-                    color: waveTextSecondary(context),
-                  ),
+                  'Real-time YouTube sync, live playback mirroring & couple messaging',
+                  style: WaveType.meta.copyWith(color: waveTextSecondary(context)),
                 ),
               ],
             ),
@@ -100,42 +117,26 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
         ),
       ),
       content: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         children: [
-          if (connect.errorMessage != null) ...[
+          if (sync.noticeMessage != null) ...[
             InfoBar(
-              title: const Text('Connection Notice'),
-              message: Text(connect.errorMessage!),
-              severity: InfoBarSeverity.warning,
+              title: const Text('Couple Space Notice'),
+              content: Text(sync.noticeMessage!),
+              severity: InfoBarSeverity.info,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
           ],
-          if (connect.state == ConnectState.connecting)
-            _buildConnectingView()
-          else if (connect.state == ConnectState.connected)
-            _buildConnectedView(connect, dark, accent)
+          if (!sync.isPaired)
+            _buildPairingView(sync, dark, accent)
           else
-            _buildSetupView(dark, accent),
+            _buildPairedView(sync, player, dark, accent),
         ],
       ),
     );
   }
 
-  Widget _buildConnectingView() {
-    return Container(
-      padding: const EdgeInsets.all(40),
-      alignment: Alignment.center,
-      child: const Column(
-        children: [
-          ProgressRing(),
-          SizedBox(height: 16),
-          Text('Connecting to sync room…', style: WaveType.body),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSetupView(bool dark, Color accent) {
+  Widget _buildPairingView(CoupleSyncState sync, bool dark, Color accent) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -148,43 +149,138 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(FluentIcons.party_leader,
-                            color: Color(0xFFF43F5E), size: 18),
-                        const SizedBox(width: 8),
-                        Text('Host a Room',
-                            style: WaveType.sectionTitle
-                                .copyWith(fontWeight: FontWeight.bold)),
+                        Icon(FluentIcons.contact, color: Color(0xFFFF4081), size: 18),
+                        SizedBox(width: 8),
+                        Text('1. Your Profile & Invite Code', style: WaveType.sectionTitle),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Create a private session. You will get a 6-letter room code to share with your partner on any device.',
-                      style: WaveType.body.copyWith(
-                        color: waveTextSecondary(context),
-                      ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => ref.read(coupleSyncProvider.notifier).setRole('HIM'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: sync.myRole == 'HIM'
+                                    ? const Color(0xFFFF4081)
+                                    : (dark ? const Color(0x1AFFFFFF) : const Color(0x0A000000)),
+                                border: Border.all(
+                                  color: sync.myRole == 'HIM'
+                                      ? const Color(0xFFFF4081)
+                                      : waveDivider(context),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Him 💙',
+                                  style: TextStyle(
+                                    color: sync.myRole == 'HIM' ? Colors.white : null,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => ref.read(coupleSyncProvider.notifier).setRole('HER'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: sync.myRole == 'HER'
+                                    ? const Color(0xFFFF4081)
+                                    : (dark ? const Color(0x1AFFFFFF) : const Color(0x0A000000)),
+                                border: Border.all(
+                                  color: sync.myRole == 'HER'
+                                      ? const Color(0xFFFF4081)
+                                      : waveDivider(context),
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Her 💖',
+                                  style: TextStyle(
+                                    color: sync.myRole == 'HER' ? Colors.white : null,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     TextBox(
                       controller: _nameController,
-                      placeholder: 'Your display name',
-                      prefix: const Padding(
-                        padding: EdgeInsets.only(left: 8),
-                        child: Icon(FluentIcons.contact, size: 14),
-                      ),
+                      placeholder: 'Enter your name...',
+                      onChanged: (v) => ref.read(coupleSyncProvider.notifier).setMyName(v),
                     ),
-                    const SizedBox(height: 16),
-                    WavePrimaryButton(
-                      label: 'Create Room',
-                      icon: FluentIcons.add,
-                      onPressed: () {
-                        final name = _nameController.text.trim();
-                        if (name.isEmpty) return;
-                        ref
-                            .read(connectServiceProvider.notifier)
-                            .createRoom(username: name);
-                      },
+                    const SizedBox(height: 18),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF281537),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0x4DFF4081)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Share This Code With Your Partner:',
+                              style: TextStyle(fontSize: 11, color: Color(0xFFE0D0E8))),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Text(
+                                sync.myCode,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const Spacer(),
+                              WaveIconButton(
+                                tooltip: 'Copy Code',
+                                icon: const Icon(FluentIcons.copy, size: 16, color: Colors.white),
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: sync.myCode));
+                                },
+                              ),
+                              WaveIconButton(
+                                tooltip: 'New Code',
+                                icon: const Icon(FluentIcons.refresh, size: 16, color: Colors.white),
+                                onPressed: () {
+                                  ref.read(coupleSyncProvider.notifier).generateMyCode();
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Row(
+                            children: [
+                              SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: ProgressRing(strokeWidth: 1.5),
+                              ),
+                              SizedBox(width: 8),
+                              Text('Waiting for partner to enter code…',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFFFF80AB))),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -197,44 +293,69 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Row(
                       children: [
-                        const Icon(FluentIcons.sync_occurence,
-                            color: Color(0xFF8B5CF6), size: 18),
-                        const SizedBox(width: 8),
-                        Text('Join Partner\'s Room',
-                            style: WaveType.sectionTitle
-                                .copyWith(fontWeight: FontWeight.bold)),
+                        Icon(FluentIcons.heart, color: Color(0xFFFF4081), size: 18),
+                        SizedBox(width: 8),
+                        Text('2. Enter Partner\'s Code', style: WaveType.sectionTitle),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Enter the room code shared by your partner from Her Music (Windows, Mac, or Android).',
-                      style: WaveType.body.copyWith(
-                        color: waveTextSecondary(context),
-                      ),
+                      'Enter the invite code from your partner\'s Her Music app (Phone, Mac, or Windows).',
+                      style: WaveType.body.copyWith(color: waveTextSecondary(context)),
                     ),
                     const SizedBox(height: 16),
                     TextBox(
-                      controller: _codeController,
-                      placeholder: 'Room code (e.g. HER-1234)',
+                      controller: _partnerCodeController,
+                      placeholder: 'Partner Code (e.g. HER-1234 or HIM-5678)',
                       prefix: const Padding(
                         padding: EdgeInsets.only(left: 8),
                         child: Icon(FluentIcons.code, size: 14),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    WavePrimaryButton(
-                      label: 'Join Session',
-                      icon: FluentIcons.plug_connected,
-                      onPressed: () {
-                        final code = _codeController.text.trim();
-                        final name = _nameController.text.trim();
-                        if (code.isEmpty || name.isEmpty) return;
-                        ref
-                            .read(connectServiceProvider.notifier)
-                            .joinRoom(roomCode: code, username: name);
-                      },
+                    const SizedBox(height: 18),
+                    FilledButton(
+                      onPressed: sync.isConnecting
+                          ? null
+                          : () {
+                              final code = _partnerCodeController.text.trim();
+                              if (code.isEmpty) return;
+                              ref.read(coupleSyncProvider.notifier).linkPartner(code);
+                            },
+                      style: ButtonStyle(
+                        backgroundColor: WidgetStateProperty.all(const Color(0xFFFF4081)),
+                        shape: WidgetStateProperty.all(
+                          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        padding: WidgetStateProperty.all(
+                          const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (sync.isConnecting) ...[
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: ProgressRing(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 8),
+                          ] else ...[
+                            const Icon(FluentIcons.heart, size: 14, color: Colors.white),
+                            const SizedBox(width: 8),
+                          ],
+                          const Text(
+                            '💖 Pair Hearts 💕',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -242,48 +363,17 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        _card(
-          dark: dark,
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFF43F5E).withValues(alpha: 0.12),
-                ),
-                child: const Icon(FluentIcons.devices3,
-                    color: Color(0xFFF43F5E), size: 22),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('True Cross-Platform Sync',
-                        style: WaveType.bodyStrong),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Whether one person is on Mac, Windows, or an Android phone with Her Music, song playback, queue changes, and seeks happen simultaneously.',
-                      style: WaveType.caption.copyWith(
-                        color: waveTextSecondary(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
 
-  Widget _buildConnectedView(
-      RoomSessionState connect, bool dark, Color accent) {
-    final player = ref.watch(playbackServiceProvider);
+  Widget _buildPairedView(
+    CoupleSyncState sync,
+    dynamic player,
+    bool dark,
+    Color accent,
+  ) {
+    final partner = sync.partnerPlayback;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,66 +386,81 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
               Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF43F5E).withValues(alpha: 0.15),
+                      color: const Color(0x33FF4081),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFFF43F5E).withValues(alpha: 0.35),
-                      ),
+                      border: Border.all(color: const Color(0x66FF4081)),
                     ),
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(FluentIcons.radio_bullet,
-                            color: Color(0xFFF43F5E), size: 14),
-                        const SizedBox(width: 8),
+                        const Icon(FluentIcons.heart, color: Color(0xFFFF4081), size: 14),
+                        const SizedBox(width: 6),
                         Text(
-                          connect.roomCode ?? '',
-                          style: WaveType.sectionTitle.copyWith(
-                            letterSpacing: 2,
+                          '${sync.myName} & ${sync.partnerName}',
+                          style: const TextStyle(
+                            color: Color(0xFFFF4081),
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFFF43F5E),
+                            fontSize: 13,
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 12),
+                  Text('Space: ${sync.spaceId}',
+                      style: WaveType.meta.copyWith(color: waveTextSecondary(context))),
+                  const SizedBox(width: 6),
                   WaveIconButton(
-                    tooltip: 'Copy Room Code',
-                    icon: const Icon(FluentIcons.copy, size: 16),
+                    tooltip: 'Copy Space ID',
+                    icon: const Icon(FluentIcons.copy, size: 14),
                     onPressed: () {
-                      if (connect.roomCode != null) {
-                        Clipboard.setData(
-                            ClipboardData(text: connect.roomCode!));
-                      }
+                      Clipboard.setData(ClipboardData(text: sync.spaceId));
                     },
-                  ),
-                  const SizedBox(width: 16),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'LIVE SYNCED',
-                      style: WaveType.caption.copyWith(
-                        color: const Color(0xFF10B981),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
                   ),
                 ],
               ),
-              WaveGhostButton(
-                label: 'Leave Room',
-                icon: FluentIcons.leave,
-                onPressed: () =>
-                    ref.read(connectServiceProvider.notifier).leaveRoom(),
+              Row(
+                children: [
+                  FilledButton(
+                    onPressed: () => ref.read(coupleSyncProvider.notifier).toggleLiveSync(),
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.all(
+                        sync.isLiveSyncing ? const Color(0xFFFF4081) : const Color(0x33FFFFFF),
+                      ),
+                      shape: WidgetStateProperty.all(
+                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      padding: WidgetStateProperty.all(
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          sync.isLiveSyncing ? FluentIcons.sync_occurence : FluentIcons.sync,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          sync.isLiveSyncing ? 'Live Sync: ON 💖' : 'Live Sync: OFF',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  WaveGhostButton(
+                    label: 'Unlink Space',
+                    icon: FluentIcons.leave,
+                    onPressed: () => ref.read(coupleSyncProvider.notifier).unlink(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -375,66 +480,126 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                       children: [
                         Row(
                           children: [
-                            const Icon(FluentIcons.group, size: 16),
+                            const Icon(FluentIcons.music_note, color: Color(0xFFFF4081), size: 18),
                             const SizedBox(width: 8),
-                            Text('Participants (${connect.users.length})',
-                                style: WaveType.bodyStrong),
+                            Text(
+                              '${sync.partnerName.isNotEmpty ? sync.partnerName : (sync.partnerRole == "HER" ? "Her" : "Him")}\'s Live Playback',
+                              style: WaveType.sectionTitle.copyWith(fontWeight: FontWeight.bold),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        for (final u in connect.users) ...[
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                        if (partner != null && partner.songId.isNotEmpty) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: dark ? const Color(0xFF1E1428) : const Color(0xFFF8F0FA),
+                              border: Border.all(color: const Color(0x33FF4081)),
+                            ),
                             child: Row(
                               children: [
-                                Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: u.isHost
-                                        ? const Color(0xFFF43F5E)
-                                            .withValues(alpha: 0.2)
-                                        : waveDivider(context),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      u.username.isNotEmpty
-                                          ? u.username[0].toUpperCase()
-                                          : '?',
-                                      style: WaveType.caption.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: partner.thumbnailUrl != null && partner.thumbnailUrl!.isNotEmpty
+                                      ? Image.network(
+                                          partner.thumbnailUrl!,
+                                          width: 60,
+                                          height: 60,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (ctx, err, st) => Container(
+                                            width: 60,
+                                            height: 60,
+                                            color: const Color(0xFF281537),
+                                            child: const Icon(FluentIcons.music_note, color: Colors.white),
+                                          ),
+                                        )
+                                      : Container(
+                                          width: 60,
+                                          height: 60,
+                                          color: const Color(0xFF281537),
+                                          child: const Icon(FluentIcons.music_note, color: Colors.white),
+                                        ),
                                 ),
-                                const SizedBox(width: 10),
+                                const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(u.username,
-                                      style: WaveType.body),
-                                ),
-                                if (u.isHost)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF43F5E)
-                                          .withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'HOST',
-                                      style: WaveType.caption.copyWith(
-                                        color: const Color(0xFFF43F5E),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        partner.title,
+                                        style: WaveType.trackTitle.copyWith(fontWeight: FontWeight.bold),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        partner.artist,
+                                        style: WaveType.meta.copyWith(color: waveTextSecondary(context)),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            partner.isPlaying ? FluentIcons.play : FluentIcons.pause,
+                                            size: 11,
+                                            color: const Color(0xFFFF4081),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            partner.isPlaying ? 'Playing in real time' : 'Paused',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFFFF4081),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
+                                ),
                               ],
                             ),
                           ),
-                        ],
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: () => ref.read(coupleSyncProvider.notifier).syncPartnerNow(),
+                            style: ButtonStyle(
+                              backgroundColor: WidgetStateProperty.all(const Color(0xFFFF4081)),
+                              shape: WidgetStateProperty.all(
+                                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              padding: WidgetStateProperty.all(
+                                const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(FluentIcons.sync_occurence, size: 14, color: Colors.white),
+                                SizedBox(width: 8),
+                                Text(
+                                  '💖 Sync & Listen Together',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Text(
+                              '${sync.partnerName} is not playing music right now. When they play a song on Android or Desktop, it will sync here!',
+                              style: WaveType.body.copyWith(color: waveTextSecondary(context)),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -444,61 +609,44 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Now Playing in Room',
-                            style: WaveType.bodyStrong),
+                        const Row(
+                          children: [
+                            Icon(FluentIcons.send, color: Color(0xFFFF4081), size: 16),
+                            SizedBox(width: 8),
+                            Text('Push Current Song 💕', style: WaveType.sectionTitle),
+                          ],
+                        ),
                         const SizedBox(height: 8),
                         if (player.current != null) ...[
-                          Text(player.current!.title,
-                              style: WaveType.trackTitle),
-                          Text(player.current!.artist,
-                              style: WaveType.caption.copyWith(
-                                color: waveTextSecondary(context),
-                              )),
+                          Text(player.current!.title, style: WaveType.body.copyWith(fontWeight: FontWeight.bold)),
+                          Text(player.current!.artist, style: WaveType.meta.copyWith(color: waveTextSecondary(context))),
                           const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              WaveIconButton(
-                                tooltip: player.isPlaying ? 'Pause' : 'Play',
-                                icon: Icon(
-                                  player.isPlaying
-                                      ? FluentIcons.pause
-                                      : FluentIcons.play,
-                                  size: 18,
+                          FilledButton(
+                            onPressed: () => ref.read(coupleSyncProvider.notifier).pushCurrentSongToPartner(),
+                            style: ButtonStyle(
+                              backgroundColor: WidgetStateProperty.all(const Color(0xFFE91E63)),
+                              shape: WidgetStateProperty.all(
+                                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              padding: WidgetStateProperty.all(
+                                const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(FluentIcons.heart, size: 12, color: Colors.white),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Push to Partner\'s Phone 💕',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                 ),
-                                onPressed: () {
-                                  if (player.isPlaying) {
-                                    ref
-                                        .read(playbackServiceProvider.notifier)
-                                        .pause();
-                                  } else {
-                                    ref
-                                        .read(playbackServiceProvider.notifier)
-                                        .playResume();
-                                  }
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              WaveIconButton(
-                                tooltip: 'Next Track',
-                                icon: const Icon(FluentIcons.next, size: 16),
-                                onPressed: () => ref
-                                    .read(playbackServiceProvider.notifier)
-                                    .next(),
-                              ),
-                              const Spacer(),
-                              Text(
-                                player.isPlaying ? 'Playing' : 'Paused',
-                                style: WaveType.caption.copyWith(
-                                  color: waveTextSecondary(context),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ] else
-                          Text('Select a song to start synced playback.',
-                              style: WaveType.caption.copyWith(
-                                color: waveTextSecondary(context),
-                              )),
+                          Text('Play any song to push it to your partner.',
+                              style: WaveType.meta.copyWith(color: waveTextSecondary(context))),
                       ],
                     ),
                   ),
@@ -515,93 +663,145 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(FluentIcons.chat, size: 16),
+                        const Icon(FluentIcons.chat, color: Color(0xFFFF4081), size: 18),
                         const SizedBox(width: 8),
-                        const Text('Room Chat & Reactions',
-                            style: WaveType.bodyStrong),
+                        Text(
+                          'Couple Chat & Song Notes 💕',
+                          style: WaveType.sectionTitle.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 6,
                       children: [
-                        for (final emoji in ['💖', '🐾', '🎵', '✨', '🔥', '🎧'])
+                        for (final emoji in ['💖', '🐾', '🎵', '✨', '🔥', '🎧', '💕', '😘'])
                           Button(
-                            onPressed: () => ref
-                                .read(connectServiceProvider.notifier)
-                                .sendChat(emoji),
+                            onPressed: () => ref.read(coupleSyncProvider.notifier).sendChat(emoji),
                             child: Text(emoji, style: const TextStyle(fontSize: 16)),
                           ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Container(
-                      height: 220,
+                      height: 280,
                       decoration: BoxDecoration(
-                        color: dark
-                            ? WaveColors.backgroundDeep
-                            : WaveColors.lightSurface,
-                        borderRadius: BorderRadius.circular(6),
+                        color: dark ? WaveColors.backgroundDeep : WaveColors.lightSurface,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       child: ListView.builder(
                         controller: _chatScroll,
-                        itemCount: connect.messages.length,
+                        itemCount: sync.messages.length,
                         itemBuilder: (context, idx) {
-                          final msg = connect.messages[idx];
-                          final isMe = msg.userId == connect.userId;
+                          final msg = sync.messages[idx];
+                          final isMe = msg.sender == sync.myName;
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${msg.username}: ',
-                                  style: WaveType.caption.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: isMe
-                                        ? const Color(0xFFF43F5E)
-                                        : accent,
-                                  ),
+                            child: Align(
+                              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                              child: Container(
+                                constraints: const BoxConstraints(maxWidth: 320),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isMe
+                                      ? const Color(0xFFFF4081)
+                                      : (dark ? const Color(0xFF281537) : const Color(0xFFEDE7F6)),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                Expanded(
-                                  child: Text(msg.message,
-                                      style: WaveType.body),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      msg.sender,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: isMe ? const Color(0xB3FFFFFF) : const Color(0xFFFF4081),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      msg.text,
+                                      style: TextStyle(
+                                        color: isMe ? Colors.white : (dark ? Colors.white : const Color(0xDD000000)),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    if (msg.songTitle != null) ...[
+                                      const SizedBox(height: 6),
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(6),
+                                          color: const Color(0x42000000),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(FluentIcons.music_note, size: 12, color: Colors.white),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                '${msg.songTitle} - ${msg.songArtist ?? ""}',
+                                                style: const TextStyle(fontSize: 11, color: Colors.white),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
                           );
                         },
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
                           child: TextBox(
                             controller: _chatController,
-                            placeholder: 'Send a message or lyric vibe…',
+                            placeholder: 'Send a love note, song vibe or message…',
                             onSubmitted: (txt) {
                               if (txt.trim().isEmpty) return;
-                              ref
-                                  .read(connectServiceProvider.notifier)
-                                  .sendChat(txt.trim());
+                              ref.read(coupleSyncProvider.notifier).sendChat(txt.trim());
                               _chatController.clear();
                             },
                           ),
                         ),
                         const SizedBox(width: 8),
                         WaveIconButton(
-                          tooltip: 'Send',
-                          icon: const Icon(FluentIcons.send, size: 16),
+                          tooltip: 'Share Playing Song',
+                          icon: const Icon(FluentIcons.music_note, size: 16),
+                          onPressed: () {
+                            ref.read(coupleSyncProvider.notifier).sendChat(
+                                  'Listening to this with you 💕',
+                                  includeCurrentSong: true,
+                                );
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        FilledButton(
                           onPressed: () {
                             final txt = _chatController.text.trim();
                             if (txt.isEmpty) return;
-                            ref
-                                .read(connectServiceProvider.notifier)
-                                .sendChat(txt);
+                            ref.read(coupleSyncProvider.notifier).sendChat(txt);
                             _chatController.clear();
                           },
+                          style: ButtonStyle(
+                            backgroundColor: WidgetStateProperty.all(const Color(0xFFFF4081)),
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                          child: const Icon(FluentIcons.send, size: 14, color: Colors.white),
                         ),
                       ],
                     ),
@@ -617,13 +817,11 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
 
   Widget _card({required bool dark, required Widget child}) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: dark ? WaveColors.surface : WaveColors.lightSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: dark ? WaveColors.outlineSoft : WaveColors.lightOutlineSoft,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: waveDivider(context)),
       ),
       child: child,
     );

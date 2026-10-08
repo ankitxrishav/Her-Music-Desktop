@@ -361,11 +361,14 @@ class _IdleIdentity extends StatelessWidget {
     final dark = waveIsDark(context);
     return Row(
       children: [
-        const WaveArtwork(
-          url: '',
-          size: 56,
-          radius: WaveRadius.artwork,
-          label: 'Nothing playing',
+        ClipRRect(
+          borderRadius: BorderRadius.circular(WaveRadius.artwork),
+          child: Image.asset(
+            'assets/icons/app_logo.png',
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -374,13 +377,13 @@ class _IdleIdentity extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Nothing playing',
+                'Her Music',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: WaveType.trackTitle.copyWith(fontSize: 13.5),
               ),
               Text(
-                'Pick something to start',
+                'Pick something to start · Listen together 💕',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: WaveType.meta.copyWith(

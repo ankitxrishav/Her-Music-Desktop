@@ -221,7 +221,7 @@ class _WelcomeChrome extends StatelessWidget {
           children: [
             const SizedBox(width: 16),
             Text(
-              'LASTWAVE',
+              'HER MUSIC',
               style: WaveType.overline.copyWith(
                 color: waveTextTertiary(context),
               ),
@@ -352,25 +352,18 @@ class _BrandVisual extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: accent.withValues(alpha: 0.14),
-                border: Border.all(
-                  color: accent.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Icon(
-                WaveIcons.music,
-                size: 28,
-                color: accent,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.asset(
+                'assets/icons/app_logo.png',
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(height: 28),
             Text(
-              'LASTWAVE',
+              'HER MUSIC',
               style: WaveType.overline.copyWith(
                 color: accent,
                 fontSize: 12,
@@ -434,20 +427,13 @@ class _BrandVisualCompact extends StatelessWidget {
     final accent = waveAccent(context);
     return Row(
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: accent.withValues(alpha: 0.14),
-            border: Border.all(
-              color: accent.withValues(alpha: 0.4),
-            ),
-          ),
-          child: Icon(
-            WaveIcons.music,
-            size: 22,
-            color: accent,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.asset(
+            'assets/icons/app_logo.png',
+            width: 44,
+            height: 44,
+            fit: BoxFit.cover,
           ),
         ),
         const SizedBox(width: 12),
@@ -455,7 +441,7 @@ class _BrandVisualCompact extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'LASTWAVE',
+              'HER MUSIC',
               style: WaveType.overline.copyWith(color: accent),
             ),
             const Text(
@@ -941,12 +927,12 @@ class _WelcomeMosaic extends StatelessWidget {
   const _WelcomeMosaic();
 
   static const _seeds = [
-    'lastwave-vinyl',
-    'lastwave-stage',
-    'lastwave-neon',
-    'lastwave-studio',
-    'lastwave-crowd',
-    'lastwave-tape',
+    'her-vinyl',
+    'her-stage',
+    'her-neon',
+    'her-studio',
+    'her-crowd',
+    'her-tape',
   ];
 
   @override

@@ -44,8 +44,7 @@ class _HerMusicAppState extends ConsumerState<HerMusicApp> {
     // Prefs are fully loaded before runApp, and AuthRepository restores
     // the same state synchronously — the first frame routes correctly.
     _gate = AuthGate(
-      initialInside: ref.read(prefsProvider).isAuthenticated ||
-          ref.read(prefsProvider).isGuest,
+      initialInside: true,
     );
     _router = buildRouter(gate: _gate);
     // Warm start (non-blocking, best-effort): create the single

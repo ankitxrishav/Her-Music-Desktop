@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/innertube/innertube_api.dart';
-import 'package:lastwave_desktop/features/library/playlist_import.dart';
-import 'package:lastwave_desktop/features/library/playlists.dart';
+import 'package:her_music_desktop/features/innertube/innertube_api.dart';
+import 'package:her_music_desktop/features/library/playlist_import.dart';
+import 'package:her_music_desktop/features/library/playlists.dart';
 
 YouTubeMusicTrack _track(String id, String title, String artist) =>
     YouTubeMusicTrack(

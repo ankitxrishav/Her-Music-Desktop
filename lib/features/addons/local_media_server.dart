@@ -91,7 +91,7 @@ class LocalMediaServer {
 
   static String pathFor(String safeName, {required bool part}) =>
       '${Directory.systemTemp.path}${Platform.pathSeparator}'
-      'lastwave_addon${Platform.pathSeparator}assembled'
+      'her_music_addon${Platform.pathSeparator}assembled'
       '${Platform.pathSeparator}$safeName.${part ? 'part' : 'm4a'}';
 
   Future<void> _route(HttpRequest req) async {
@@ -130,11 +130,11 @@ class LocalMediaServer {
 final Set<String> _activePartials = <String>{};
 
 /// Server breadcrumb log, shared timeline with the playback ops log
-/// (`<temp>/lastwave/mpv-ops.log`). Names and shapes only — never URLs.
+/// (`<temp>/her_music/mpv-ops.log`). Names and shapes only — never URLs.
 void _slog(String line) {
   try {
     final path =
-        '${Directory.systemTemp.path}${Platform.pathSeparator}lastwave${Platform.pathSeparator}mpv-ops.log';
+        '${Directory.systemTemp.path}${Platform.pathSeparator}her_music${Platform.pathSeparator}mpv-ops.log';
     File(path).writeAsStringSync(
       '${DateTime.now().toIso8601String()} addon-server $line\n',
       mode: FileMode.append,

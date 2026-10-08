@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/audio/stream_models.dart';
 import '../player/playback_service.dart';
+import '../player/player_state.dart';
 import 'connect_models.dart';
 
 final connectServiceProvider =
@@ -30,7 +31,7 @@ class ConnectService extends StateNotifier<RoomSessionState> {
   }
 
   void _initPlayerListener() {
-    _ref.listen<PlayerSnapshot>(playbackServiceProvider, (prev, next) {
+    _ref.listen<PlayerSnapshot>(playbackServiceProvider, (PlayerSnapshot? prev, PlayerSnapshot next) {
       if (_handlingRemote || state.state != ConnectState.connected) return;
 
       final track = next.current;
@@ -135,9 +136,9 @@ class ConnectService extends StateNotifier<RoomSessionState> {
       'type': 'playback_action',
       'payload': {
         'action': action,
-        if (trackId != null) 'track_id': trackId,
-        if (positionMs != null) 'position': positionMs,
-        if (trackInfo != null) 'track_info': trackInfo.toJson(),
+        'track_id': ?trackId,
+        'position': ?positionMs,
+        'track_info': ?trackInfo?.toJson(),
       },
     });
   }
@@ -291,7 +292,6 @@ class ConnectService extends StateNotifier<RoomSessionState> {
 
   void _handlePlaybackAction(Map<String, dynamic> payload) {
     final action = payload['action'] as String? ?? '';
-    final trackId = payload['track_id'] as String? ?? '';
     final pos = (payload['position'] as num?)?.toInt();
     final trackJson = payload['track_info'] as Map<String, dynamic>?;
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 
 import 'package:path/path.dart' as p;
@@ -25,7 +26,11 @@ class AppDatabase {
 
   static Future<AppDatabase> open() async {
     final dir = await getApplicationSupportDirectory();
-    final file = p.join(dir.path, 'lastwave.db');
+    final file = p.join(dir.path, 'her_music.db');
+    final oldFile = p.join(dir.path, 'lastwave.db');
+    if (!File(file).existsSync() && File(oldFile).existsSync()) {
+      try { File(oldFile).copySync(file); } catch (_) {}
+    }
     final db = sqlite3.open(file);
     final instance = AppDatabase._(db);
     instance._migrate();

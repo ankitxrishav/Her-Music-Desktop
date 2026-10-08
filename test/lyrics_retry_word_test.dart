@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_models.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_repository.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_models.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_repository.dart';
 
 /// Bug 1: a failed first fetch poisons retries.
 /// Bug 2: LRCLIB word-stamped (enhanced) LRC is served as line-sync.

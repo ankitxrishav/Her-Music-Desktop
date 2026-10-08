@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/flutter_lyric_adapter.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_models.dart' as lm;
+import 'package:her_music_desktop/features/lyrics/flutter_lyric_adapter.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_models.dart' as lm;
 
 void main() {
   group('flutter_lyric_adapter', () {

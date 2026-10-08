@@ -18,7 +18,7 @@
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "uuid.lib")
 
-namespace lastwave {
+namespace her_music {
 namespace wasapi {
 namespace {
 
@@ -453,4 +453,4 @@ void StopWatching() {
 }
 
 }  // namespace wasapi
-}  // namespace lastwave
+}  // namespace her_music

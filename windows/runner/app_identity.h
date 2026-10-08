@@ -11,7 +11,7 @@
 // shortcut with this ID exists (e.g. `flutter run` without installing)
 // - the shell cannot resolve display name/icon and falls back to
 // "Unknown app" with no logo.
-constexpr wchar_t kLastWaveAppUserModelId[] = L"com.lastwave.lastwave_desktop";
+constexpr wchar_t kHerMusicAppUserModelId[] = L"com.fenrir.her.desktop";
 
 #endif  // RUNNER_APP_IDENTITY_H_
 

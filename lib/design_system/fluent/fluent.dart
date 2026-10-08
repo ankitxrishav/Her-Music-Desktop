@@ -2,7 +2,7 @@
 ///
 /// Canonical semantic tokens for the whole app:
 /// ```dart
-/// import 'package:lastwave_desktop/design_system/fluent/fluent.dart';
+/// import 'package:her_music_desktop/design_system/fluent/fluent.dart';
 /// ```
 library;
 

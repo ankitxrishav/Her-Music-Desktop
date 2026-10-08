@@ -1,3 +1,4 @@
+import '../../features/connect/couple_sync_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,6 +103,21 @@ class WaveHomePage extends ConsumerWidget {
                 username: username,
                 date: date,
                 signedIn: auth.status == AuthStatus.signedIn,
+              ),
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(side, 0, side, 0),
+          sliver: SliverToBoxAdapter(
+            child: WaveEntrance(
+              local: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _CoupleSpaceHeroCard(side: side),
+                  const _MoodPillsRow(),
+                ],
               ),
             ),
           ),
@@ -649,19 +665,60 @@ class _Header extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.asset(
+            'assets/icons/app_logo.png',
+            width: 38,
+            height: 38,
+            fit: BoxFit.cover,
+          ),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                username.isNotEmpty ? '$greeting, $username' : greeting,
-                style: WaveType.pageTitle.copyWith(fontSize: 24),
+              Row(
+                children: [
+                  Text(
+                    'Her',
+                    style: WaveType.pageTitle.copyWith(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0x33FF4081),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(FluentIcons.heart, size: 10, color: Color(0xFFFF4081)),
+                        SizedBox(width: 4),
+                        Text(
+                          'Couple Space',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFF4081),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 2),
               Text(
                 username.isNotEmpty
-                    ? 'For $username · $date · picked from your taste'
-                    : '$date · picked for you · connect Last.fm for more',
+                    ? 'Welcome back, $username · $date'
+                    : '$greeting · Sync music & listen in real time',
                 style: WaveType.meta.copyWith(
                   color: dark
                       ? WaveColors.textSecondary
@@ -671,36 +728,294 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        if (!signedIn)
-          GestureDetector(
-            onTap: () => context.go('/settings?section=lastfm'),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: dark ? Colors.white : Colors.black,
-                borderRadius: BorderRadius.circular(999),
+        GestureDetector(
+          onTap: () => context.go('/connect'),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF4081), Color(0xFFE91E63)],
               ),
-              child: Text(
-                'Connect',
-                style: WaveType.label.copyWith(
-                  color: dark ? Colors.black : Colors.white,
-                  fontSize: 12,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF4081).withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-              ),
+              ],
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(FluentIcons.heart, size: 12, color: Colors.white),
+                SizedBox(width: 6),
+                Text(
+                  'Pair Hearts 💕',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
       ],
     );
   }
 }
 
-/// Horizontal card rail for a YouTube Music home carousel.
-///
-/// Cards navigate rather than play: the entity is a container (album,
-/// playlist, radio) whose tracks are only known after another browse,
-/// so tapping opens its detail page - the same route the equivalent
-/// shelf on music.youtube.com takes.
+class _CoupleSpaceHeroCard extends ConsumerWidget {
+  final double side;
+  const _CoupleSpaceHeroCard({required this.side});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sync = ref.watch(coupleSyncProvider);
+    final partner = sync.partnerPlayback;
+    final partnerPlaying = partner != null && partner.songId.isNotEmpty && partner.isPlaying;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF281537),
+            Color(0xFF140B1E),
+          ],
+        ),
+        border: Border.all(
+          color: const Color(0x4DFF4081),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF281537).withValues(alpha: 0.45),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFFF4081),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF4081).withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(
+                    FluentIcons.heart,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: sync.isPaired ? const Color(0x3310B981) : const Color(0x33FF4081),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  sync.isPaired ? 'PAIRED 💕' : 'Tap to Pair',
+                  style: TextStyle(
+                    color: sync.isPaired ? const Color(0xFF6EE7B7) : Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            sync.isPaired
+                ? ((sync.myName.isNotEmpty && sync.partnerName.isNotEmpty)
+                    ? '${sync.myName} & ${sync.partnerName} · Couple Space 💕'
+                    : 'Our Couple Space 💕')
+                : 'Link Couple Space',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            partnerPlaying
+                ? '${sync.partnerName} is playing · Tap to sync 💕'
+                : (sync.isPaired
+                    ? 'Sync music, push songs & listen together in real time 💕'
+                    : "Pair with your partner's phone or computer to listen simultaneously."),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFFE0D0E8),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    if (partnerPlaying) {
+                      ref.read(coupleSyncProvider.notifier).syncPartnerNow();
+                    } else {
+                      context.go('/connect');
+                    }
+                  },
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.all(const Color(0xFFFF4081)),
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    padding: WidgetStateProperty.all(
+                      const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        partnerPlaying ? FluentIcons.sync_occurence : FluentIcons.heart,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        partnerPlaying ? "💖 Sync Partner's Song" : (sync.isPaired ? '💖 Couple Space 💕' : 'Pair Hearts 💕'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Button(
+                onPressed: () => context.go('/connect'),
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.all(const Color(0x33FFFFFF)),
+                  shape: WidgetStateProperty.all(
+                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                ),
+                child: const Text(
+                  'Couple Space',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MoodPillsRow extends StatefulWidget {
+  const _MoodPillsRow();
+
+  @override
+  State<_MoodPillsRow> createState() => _MoodPillsRowState();
+}
+
+class _MoodPillsRowState extends State<_MoodPillsRow> {
+  String? _selected = 'Romance';
+
+  static const _moods = [
+    'Romance',
+    'Feel good',
+    'Party',
+    'Relax',
+    'Energize',
+    'Bollywood',
+    'Punjabi',
+    'Workout',
+    'Focus',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _moods.length,
+        separatorBuilder: (_, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final mood = _moods[index];
+          final isSelected = _selected == mood;
+          return GestureDetector(
+            onTap: () {
+              setState(() => _selected = mood);
+              context.go('/search?q=${Uri.encodeComponent(mood)}');
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: isSelected
+                    ? const Color(0xFFFF4081)
+                    : const Color(0x1AFFFFFF),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFFFF4081)
+                      : const Color(0x33FFFFFF),
+                  width: 1,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  mood,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _YtShelfRow extends StatelessWidget {
   final List<YouTubeMusicEntity> entities;
 

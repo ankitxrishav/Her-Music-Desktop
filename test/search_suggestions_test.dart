@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/search/search_repository.dart';
-import 'package:lastwave_desktop/ui/navigation/destinations.dart';
+import 'package:her_music_desktop/features/search/search_repository.dart';
+import 'package:her_music_desktop/ui/navigation/destinations.dart';
 
 void main() {
   group('suggestionNameMatchesQuery', () {

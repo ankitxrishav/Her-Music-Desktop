@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_models.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_repository.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_models.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_repository.dart';
 
 /// Line-by-line reproduction: LRCLIB holds ONLY a line-synced record,
 /// Apple/iTunes holds nothing. Both display modes must yield usable lines.

@@ -85,7 +85,54 @@ class _WaveSideRailState extends State<WaveSideRail> {
       child: WaveEntranceGroup(
         child: Column(
         children: [
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: () => onGo('/home'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: expanded
+                  ? Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            'assets/icons/app_logo.png',
+                            width: 28,
+                            height: 28,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Her',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          FluentIcons.heart,
+                          size: 11,
+                          color: Color(0xFFFF4081),
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          'assets/icons/app_logo.png',
+                          width: 26,
+                          height: 26,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 2),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 6),

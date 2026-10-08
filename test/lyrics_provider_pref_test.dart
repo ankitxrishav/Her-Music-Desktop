@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_providers.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_providers.dart';
 
 void main() {
   test('provider ids round-trip, unknown falls back to auto', () {

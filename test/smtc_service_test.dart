@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/core/audio/stream_models.dart';
-import 'package:lastwave_desktop/features/player/player_state.dart';
-import 'package:lastwave_desktop/features/smtc/smtc_service.dart';
+import 'package:her_music_desktop/core/audio/stream_models.dart';
+import 'package:her_music_desktop/features/player/player_state.dart';
+import 'package:her_music_desktop/features/smtc/smtc_service.dart';
 
 const _track = PlayableTrack(
   title: 'Song',

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/core/error/fatal_crumbs.dart';
+import 'package:her_music_desktop/core/error/fatal_crumbs.dart';
 
 void main() {
   test('fatal crumb carries type and single-line message', () {
@@ -12,10 +12,10 @@ void main() {
   test('fatal crumb bounds long messages and notes the app frame', () {
     final long = List.filled(600, 'x').join();
     final stack = StackTrace.fromString(
-        '#0 main (dart:async)\n#1 playback (package:lastwave_desktop/foo.dart:1:2)');
+        '#0 main (dart:async)\n#1 playback (package:her_music_desktop/foo.dart:1:2)');
     final line = fatalCrumb(ArgumentError(long), stack);
     expect(line.length, lessThan(700));
-    expect(line.endsWith('... @ #1 playback (package:lastwave_desktop/foo.dart:1:2)'),
+    expect(line.endsWith('... @ #1 playback (package:her_music_desktop/foo.dart:1:2)'),
         isTrue);
   });
 

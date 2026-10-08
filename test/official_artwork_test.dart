@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/core/artwork/artwork_resolver.dart';
-import 'package:lastwave_desktop/core/artwork/official_artwork_service.dart';
-import 'package:lastwave_desktop/core/audio/stream_models.dart';
-import 'package:lastwave_desktop/core/storage/app_database.dart';
+import 'package:her_music_desktop/core/artwork/artwork_resolver.dart';
+import 'package:her_music_desktop/core/artwork/official_artwork_service.dart';
+import 'package:her_music_desktop/core/audio/stream_models.dart';
+import 'package:her_music_desktop/core/storage/app_database.dart';
 
 void main() {
   group('ArtworkResolver official priority & sizing', () {

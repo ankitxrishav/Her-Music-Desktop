@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace lastwave {
+namespace her_music {
 namespace {
 
 using flutter::EncodableList;
@@ -47,13 +47,13 @@ class WasapiChannel::Impl : public wasapi::DeviceListener {
  public:
   explicit Impl(flutter::BinaryMessenger* messenger) {
     method_ = std::make_unique<flutter::MethodChannel<EncodableValue>>(
-        messenger, "lastwave/wasapi",
+        messenger, "her_music/wasapi",
         &flutter::StandardMethodCodec::GetInstance());
     method_->SetMethodCallHandler(
         [this](const auto& call, auto result) { Handle(call, std::move(result)); });
 
     events_ = std::make_unique<flutter::EventChannel<EncodableValue>>(
-        messenger, "lastwave/wasapi/events",
+        messenger, "her_music/wasapi/events",
         &flutter::StandardMethodCodec::GetInstance());
     events_->SetStreamHandler(
         std::make_unique<flutter::StreamHandlerFunctions<EncodableValue>>(
@@ -188,4 +188,4 @@ WasapiChannel::WasapiChannel(flutter::BinaryMessenger* messenger)
 
 WasapiChannel::~WasapiChannel() = default;
 
-}  // namespace lastwave
+}  // namespace her_music

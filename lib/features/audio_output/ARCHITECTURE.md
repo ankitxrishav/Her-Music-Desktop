@@ -1,6 +1,6 @@
 # WASAPI Exclusive / bit-perfect output
 
-LastWave keeps **media_kit / libmpv** as the PCM renderer. This module adds
+Her Music keeps **media_kit / libmpv** as the PCM renderer. This module adds
 Windows endpoint probing, format negotiation, hardware volume, and an honest
 bit-perfect status machine around that existing player.
 
@@ -59,8 +59,8 @@ endpoint accepts exclusive 32-bit PCM or float.
 - `windows/runner/wasapi_engine.h` / `.cpp` — `IMMDeviceEnumerator`, `IMMDevice`,
   `IAudioClient::IsFormatSupported`, `IAudioEndpointVolume`,
   `IMMNotificationClient`, `WAVEFORMATEXTENSIBLE`
-- `windows/runner/wasapi_channel.h` / `.cpp` — MethodChannel `lastwave/wasapi`,
-  EventChannel `lastwave/wasapi/events`
+- `windows/runner/wasapi_channel.h` / `.cpp` — MethodChannel `her_music/wasapi`,
+  EventChannel `her_music/wasapi/events`
 - `windows/runner/flutter_window.cpp` — registers the channel
 - `windows/runner/CMakeLists.txt` — compiles the engine, links ole32/uuid
 

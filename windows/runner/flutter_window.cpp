@@ -16,7 +16,7 @@ namespace {
 // Window-level AppUserModelID: GetForWindow-based SMTC resolves the
 // flyout label/icon from the HWND's property store first, then falls
 // back to the process ID set in main.cpp. Setting both to the same
-// kLastWaveAppUserModelId keeps taskbar grouping + SMTC in sync.
+// kHerMusicAppUserModelId keeps taskbar grouping + SMTC in sync.
 // Best-effort: any failure degrades to the process-level ID.
 void SetWindowAppUserModelId(HWND hwnd) {
   if (hwnd == nullptr) return;
@@ -27,7 +27,7 @@ void SetWindowAppUserModelId(HWND hwnd) {
   }
   PROPVARIANT pv{};
   if (SUCCEEDED(::InitPropVariantFromString(
-          kLastWaveAppUserModelId, &pv))) {
+          kHerMusicAppUserModelId, &pv))) {
     store->SetValue(PKEY_AppUserModel_ID, pv);
     store->Commit();
     ::PropVariantClear(&pv);
@@ -63,12 +63,12 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  wasapi_channel_ = std::make_unique<lastwave::WasapiChannel>(
+  wasapi_channel_ = std::make_unique<her_music::WasapiChannel>(
       flutter_controller_->engine()->messenger());
   // SMTC (volume flyout / lock screen / media keys) binds the main window
   // only - the hidden BotGuard WebView never gets its own registration.
   // Best-effort: init failures degrade to silence inside the channel.
-  smtc_channel_ = std::make_unique<lastwave::SmtcChannel>(
+  smtc_channel_ = std::make_unique<her_music::SmtcChannel>(
       flutter_controller_->engine()->messenger(), GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 

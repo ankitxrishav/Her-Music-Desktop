@@ -31,7 +31,7 @@ class YtWebLogin {
   /// next frame; coredumps 2026-09-21 PIDs 43393/45028/51987), so the
   /// flow hides the window instead of closing it. On Linux the hide,
   /// show, and X-button interception go through the native
-  /// `lastwave/yt_webview` guard (`linux/runner/yt_webview_guard.cc`),
+  /// `her_music/yt_webview` guard (`linux/runner/yt_webview_guard.cc`),
   /// so even the window's own × button is safe (it hides).
   static Webview? _cachedWindow;
 

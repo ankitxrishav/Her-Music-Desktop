@@ -8,7 +8,7 @@
 /// Does not render PCM — libmpv remains the exclusive-mode renderer.
 /// This layer enumerates endpoints, probes exclusive PCM formats via
 /// IAudioClient::IsFormatSupported, and drives IAudioEndpointVolume.
-namespace lastwave {
+namespace her_music {
 namespace wasapi {
 
 struct PcmFormat {
@@ -54,6 +54,6 @@ bool StartWatching(DeviceListener* listener, std::string* error);
 void StopWatching();
 
 }  // namespace wasapi
-}  // namespace lastwave
+}  // namespace her_music
 
 #endif  // RUNNER_WASAPI_ENGINE_H_

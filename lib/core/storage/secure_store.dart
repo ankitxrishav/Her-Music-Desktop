@@ -6,10 +6,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Uses OS keychain/credential-manager; falls back to in-memory on
 /// platforms without a backend so the app keeps working.
 class SecureStore {
-  static const _sessionKey = 'lastwave.session_key';
-  static const _ytCookies = 'lastwave.yt_cookies';
-  static const _ytProfiles = 'lastwave.yt_profiles';
-  static const _ytActive = 'lastwave.yt_active';
+  static const _sessionKey = 'her_music.session_key';
+  static const _ytCookies = 'her_music.yt_cookies';
+  static const _ytProfiles = 'her_music.yt_profiles';
+  static const _ytActive = 'her_music.yt_active';
 
   final FlutterSecureStorage _storage;
   final Map<String, String> _memoryFallback = {};

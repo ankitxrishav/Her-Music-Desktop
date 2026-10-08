@@ -8,7 +8,7 @@
 
 #include "win32_window.h"
 
-namespace lastwave {
+namespace her_music {
 class WasapiChannel;
 class SmtcChannel;
 }
@@ -33,8 +33,8 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
-  std::unique_ptr<lastwave::WasapiChannel> wasapi_channel_;
-  std::unique_ptr<lastwave::SmtcChannel> smtc_channel_;
+  std::unique_ptr<her_music::WasapiChannel> wasapi_channel_;
+  std::unique_ptr<her_music::SmtcChannel> smtc_channel_;
   // Set at the start of OnDestroy: DestroyWindow() re-enters the WndProc
   // via a user-callback while teardown is in flight (release crash
   // flutter_windows+1e220). Once set, messages go to DefWindowProc

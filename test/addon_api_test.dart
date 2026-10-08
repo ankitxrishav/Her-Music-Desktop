@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/core/env/app_env.dart';
-import 'package:lastwave_desktop/features/addons/addon_api.dart';
+import 'package:her_music_desktop/core/env/app_env.dart';
+import 'package:her_music_desktop/features/addons/addon_api.dart';
 
 String _hex(String c) => List.filled(64, c).join();
 

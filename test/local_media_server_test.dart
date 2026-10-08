@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/addons/local_media_server.dart';
+import 'package:her_music_desktop/features/addons/local_media_server.dart';
 
 const _manifest = '''
 <MPD type="static" mediaPresentationDuration="PT4M7S">
@@ -113,7 +113,7 @@ Future<List<int>> _get(Uri uri, {Map<String, String>? headers}) async {
 /// test so runs never see each other's leftovers.
 Future<void> _scrub(String cacheName) async {
   final dir =
-      '${Directory.systemTemp.path}${Platform.pathSeparator}lastwave_addon${Platform.pathSeparator}assembled';
+      '${Directory.systemTemp.path}${Platform.pathSeparator}her_music_addon${Platform.pathSeparator}assembled';
   for (final ext in ['m4a', 'part']) {
     try {
       await File(
@@ -187,7 +187,7 @@ void main() {
       // state instead of racing the producer (orphaned partials
       // otherwise litter the shared temp dir between runs).
       final want =
-          '${Directory.systemTemp.path}${Platform.pathSeparator}lastwave_addon${Platform.pathSeparator}assembled${Platform.pathSeparator}srv-test-known.m4a';
+          '${Directory.systemTemp.path}${Platform.pathSeparator}her_music_addon${Platform.pathSeparator}assembled${Platform.pathSeparator}srv-test-known.m4a';
       for (var i = 0; i < 100; i++) {
         if (File(want).existsSync()) break;
         await Future.delayed(const Duration(milliseconds: 50));

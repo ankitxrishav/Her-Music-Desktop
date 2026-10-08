@@ -65,6 +65,7 @@ dependencies:
   archive: ^4.2.0
   synchronized: ^3.4.2
   collection: ^1.19.1
+  xml: ^7.0.1
   sqflite_common_ffi: ^2.4.3
   fluent_ui: ^4.16.1
   flutter_acrylic: ^1.1.4

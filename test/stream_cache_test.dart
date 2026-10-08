@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/core/audio/stream_models.dart';
+import 'package:her_music_desktop/core/audio/stream_models.dart';
 
 void main() {
   group('ResolvedStreamCache', () {

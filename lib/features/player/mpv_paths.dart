@@ -8,7 +8,7 @@ import 'dart:io';
 /// fails to create on this setup (`Failed to create file cache` on
 /// every open), so the app pins an explicit dir it creates itself.
 String mpvCacheDirPath() =>
-    '${Directory.systemTemp.path}${Platform.pathSeparator}lastwave${Platform.pathSeparator}mpv-cache';
+    '${Directory.systemTemp.path}${Platform.pathSeparator}her_music${Platform.pathSeparator}mpv-cache';
 
 /// Best-effort recursive mkdir. Never throws; empty path is a no-op.
 Future<void> ensureDirExists(String path) async {

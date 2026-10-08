@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_providers.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_providers.dart';
 
 const _ttmlDoc = '<tt xmlns="http://www.w3.org/ns/ttml"><body><div>'
     '<p begin="00:00.10" end="00:02.00">'

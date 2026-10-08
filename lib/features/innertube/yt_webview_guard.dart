@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 
 /// Linux-only guard for WebView windows.
 ///
-/// Backed by `lastwave/yt_webview`, registered in `linux/runner`
+/// Backed by `her_music/yt_webview`, registered in `linux/runner`
 /// (`yt_webview_guard.cc`): finds windows by title, hides/shows them,
 /// and converts their X buttons into hides (upstream
 /// `desktop_webview_window` 0.3.0 implements no visibility API on
@@ -12,7 +12,7 @@ import 'package:flutter/services.dart';
 class YtWebviewGuard {
   YtWebviewGuard._();
 
-  static const _channel = MethodChannel('lastwave/yt_webview');
+  static const _channel = MethodChannel('her_music/yt_webview');
 
   static bool get isSupported => Platform.isLinux;
 

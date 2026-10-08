@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/core/network/lastfm_crypto.dart';
-import 'package:lastwave_desktop/features/innertube/innertube_api.dart';
-import 'package:lastwave_desktop/features/innertube/signature_decipher.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_models.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_repository.dart';
+import 'package:her_music_desktop/core/network/lastfm_crypto.dart';
+import 'package:her_music_desktop/features/innertube/innertube_api.dart';
+import 'package:her_music_desktop/features/innertube/signature_decipher.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_models.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_repository.dart';
 
 void main() {
   group('LastFmSigner', () {

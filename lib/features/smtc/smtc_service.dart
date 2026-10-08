@@ -79,12 +79,12 @@ Map<String, Object>? smtcUpdateFor(PlayerSnapshot? prev, PlayerSnapshot next) {
 /// counterpart to the MPRIS service on Linux.
 ///
 /// Pushes now-playing metadata + transport state to the native
-/// `lastwave/smtc` channel (volume flyout, lock screen, Bluetooth,
+/// `her_music/smtc` channel (volume flyout, lock screen, Bluetooth,
 /// hardware media keys) and routes button presses back into
 /// [PlaybackService]. Windows only; every failure degrades to silence.
 class SmtcService {
   final Ref _ref;
-  final MethodChannel _channel = const MethodChannel('lastwave/smtc');
+  final MethodChannel _channel = const MethodChannel('her_music/smtc');
   PlayerSnapshot? _last;
   bool _handlerSet = false;
   bool _disposed = false;

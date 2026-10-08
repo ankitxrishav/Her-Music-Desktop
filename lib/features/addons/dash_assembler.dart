@@ -187,7 +187,7 @@ class DashAssembler {
   static Future<void> pruneCache([Set<String> activeNames = const {}]) async {
     try {
       final dir = Directory('${Directory.systemTemp.path}'
-          '${Platform.pathSeparator}lastwave_addon'
+          '${Platform.pathSeparator}her_music_addon'
           '${Platform.pathSeparator}assembled');
       if (!await dir.exists()) return;
       final finished = <File>[];

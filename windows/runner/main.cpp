@@ -57,7 +57,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // Explicit app identity BEFORE any window exists: taskbar grouping
   // and the SMTC media-flyout source label ("Unknown app" otherwise).
   // Best-effort — the app runs fine without it.
-  ::SetCurrentProcessExplicitAppUserModelID(kLastWaveAppUserModelId);
+  ::SetCurrentProcessExplicitAppUserModelID(kHerMusicAppUserModelId);
 
   ::timeBeginPeriod(1);
 
@@ -71,7 +71,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"lastwave_desktop", origin, size)) {
+  if (!window.Create(L"Her Music", origin, size)) {
     ::timeEndPeriod(1);
     return EXIT_FAILURE;
   }

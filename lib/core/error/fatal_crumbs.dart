@@ -1,5 +1,5 @@
 /// Fatal-error breadcrumbs: format + synchronously append Dart fatal
-/// errors to the ops trail (`<temp>/lastwave/mpv-ops.log`) so the next
+/// errors to the ops trail (`<temp>/her_music/mpv-ops.log`) so the next
 /// fail-fast names its line. Sync writes only — async logging cannot
 /// outlive the isolate shutdown path. All best-effort, never throws.
 library;
@@ -17,7 +17,7 @@ String fatalCrumb(Object error, [StackTrace? stack]) {
         .toString()
         .split('\n')
         .map((l) => l.trim())
-        .firstWhere((l) => l.contains('package:lastwave'),
+        .firstWhere((l) => l.contains('package:her_music_desktop'),
             orElse: () => '');
     if (frame.isNotEmpty) out += ' @ $frame';
   }
@@ -28,7 +28,7 @@ String fatalCrumb(Object error, [StackTrace? stack]) {
 void writeFatalCrumb(String line) {
   try {
     final path =
-        '${Directory.systemTemp.path}${Platform.pathSeparator}lastwave${Platform.pathSeparator}mpv-ops.log';
+        '${Directory.systemTemp.path}${Platform.pathSeparator}her_music${Platform.pathSeparator}mpv-ops.log';
     File(path).writeAsStringSync(
       '${DateTime.now().toIso8601String()} $line\n',
       mode: FileMode.append,

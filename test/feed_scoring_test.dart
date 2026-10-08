@@ -2,15 +2,15 @@ import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/core/network/lastfm_api.dart';
-import 'package:lastwave_desktop/core/network/rate_guard.dart';
-import 'package:lastwave_desktop/core/storage/app_database.dart';
-import 'package:lastwave_desktop/core/storage/prefs.dart';
-import 'package:lastwave_desktop/core/storage/secure_store.dart';
-import 'package:lastwave_desktop/features/feed/feed_repository.dart';
-import 'package:lastwave_desktop/features/feed/local_taste.dart';
-import 'package:lastwave_desktop/features/innertube/innertube_api.dart';
-import 'package:lastwave_desktop/features/lastfm/home_repository.dart';
+import 'package:her_music_desktop/core/network/lastfm_api.dart';
+import 'package:her_music_desktop/core/network/rate_guard.dart';
+import 'package:her_music_desktop/core/storage/app_database.dart';
+import 'package:her_music_desktop/core/storage/prefs.dart';
+import 'package:her_music_desktop/core/storage/secure_store.dart';
+import 'package:her_music_desktop/features/feed/feed_repository.dart';
+import 'package:her_music_desktop/features/feed/local_taste.dart';
+import 'package:her_music_desktop/features/innertube/innertube_api.dart';
+import 'package:her_music_desktop/features/lastfm/home_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 GeneratedTrack _t(String name, String artist) =>

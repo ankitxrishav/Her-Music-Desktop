@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_providers.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_providers.dart';
 
 const _miniKrc = '[offset:100]\n'
     '[500,1000]<0,200,0>Ed Sheeran - Shape of You\n'

@@ -33,7 +33,7 @@ class PoTokenResult {
 /// Lifetime: ONE persistent hidden WebView per app run, never destroyed
 /// and recreated per song. Linux `desktop_webview_window` 0.3.0
 /// segfaults on every webview destroy and implements no hide/move API,
-/// so on Linux the window is hidden via the native `lastwave/yt_webview`
+/// so on Linux the window is hidden via the native `her_music/yt_webview`
 /// guard and reused; `close()` is never called there. On Windows the
 /// same reuse avoids the per-song popup + taskbar flash + 9s stall.
 class PoTokenEngine {
@@ -75,7 +75,7 @@ class PoTokenEngine {
       : _dio = dio ?? DioFactory.create();
 
   Future<void> preWarm(
-      {String sessionId = 'lastwave_session'}) async {
+      {String sessionId = 'her_music_session'}) async {
     if (!enabled || _permanentlyBroken || sessionId.isEmpty) return;
     // Reuse the single hidden WebView when tokens are still valid —
     // never recreate a warm engine just to pre-warm.
@@ -94,7 +94,7 @@ class PoTokenEngine {
 
   Future<PoTokenResult?> mintToken(
     String videoId, {
-    String sessionId = 'lastwave_session',
+    String sessionId = 'her_music_session',
   }) async {
     if (!enabled || _permanentlyBroken) return null;
     if (videoId.isEmpty) return null;
@@ -256,7 +256,7 @@ class PoTokenEngine {
     final patched = html.replaceFirst(
         '</script>', '\nwindow.__bgLoaded=true;</script>');
     final dir = await Directory.systemTemp
-        .createTemp('lastwave_bg');
+        .createTemp('her_music_bg');
     final file = File(
         '${dir.path}${Platform.pathSeparator}po_token.html');
     await file.writeAsString(patched);

@@ -10,8 +10,8 @@ import 'dac_device.dart';
 /// The engine enumerates endpoints, probes exclusive PCM, and drives
 /// hardware volume. PCM render stays in libmpv (`ao=wasapi`).
 class WasapiEngine {
-  static const _channel = MethodChannel('lastwave/wasapi');
-  static const _events = EventChannel('lastwave/wasapi/events');
+  static const _channel = MethodChannel('her_music/wasapi');
+  static const _events = EventChannel('her_music/wasapi/events');
 
   const WasapiEngine();
 

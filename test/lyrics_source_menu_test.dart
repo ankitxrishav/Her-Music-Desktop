@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lastwave_desktop/features/lyrics/lyrics_providers.dart';
+import 'package:her_music_desktop/features/lyrics/lyrics_providers.dart';
 
 void main() {
   test('source strings map to provider ids', () {

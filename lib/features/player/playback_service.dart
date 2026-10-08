@@ -144,7 +144,7 @@ class PlaybackService extends StateNotifier<PlayerSnapshot> {
   /// the dying demuxer and corrupts the heap.
   bool _lastWasDash = false;
 
-  /// Crash-surviving breadcrumb file (`<temp>/lastwave/mpv-ops.log`).
+  /// Crash-surviving breadcrumb file (`<temp>/her_music/mpv-ops.log`).
   /// Written synchronously with flush BEFORE each native op, so the
   /// last line names the call that killed the process. Never logs
   /// URLs, cookies, or headers — op names and stream shapes only.
@@ -272,7 +272,7 @@ class PlaybackService extends StateNotifier<PlayerSnapshot> {
     // unlike stdout. All best-effort; never blocks startup.
     try {
       final trailDir = Directory(
-          '${Directory.systemTemp.path}${Platform.pathSeparator}lastwave');
+          '${Directory.systemTemp.path}${Platform.pathSeparator}her_music');
       trailDir.createSync(recursive: true);
       _crumbPath =
           '${trailDir.path}${Platform.pathSeparator}mpv-ops.log';
