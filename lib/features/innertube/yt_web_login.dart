@@ -1,0 +1,503 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:desktop_webview_window/desktop_webview_window.dart';
+import 'package:flutter/foundation.dart';
+
+import 'yt_webview_guard.dart';
+
+/// In-app YouTube Music sign-in via a visible system WebView.
+///
+/// Opens `music.youtube.com` in a real browser window where the user
+/// signs in with Google normally. Polls the WebView cookie jar for
+/// login markers (`LOGIN_INFO` + SAPISID family) and returns a Cookie
+/// header string suitable for [InnerTubeMusicApi.connect].
+///
+/// Returns `null` when the user closes the window (cancelled), when no
+/// usable system WebView exists, or on timeout.
+class YtWebLogin {
+  YtWebLogin._();
+
+  static const _loginUrl = 'https://music.youtube.com/';
+  static const _pollInterval = Duration(seconds: 2);
+  static const _timeout = Duration(minutes: 10);
+
+  static bool _inflight = false;
+
+  /// One cached window, reused across logins and NEVER destroyed by
+  /// us. Upstream `desktop_webview_window` 0.3.0 segfaults on Linux
+  /// when a webview window is destroyed (use-after-free in its Gtk
+  /// "destroy" handler + EGL-context teardown poisoning the host's
+  /// next frame; coredumps 2026-09-21 PIDs 43393/45028/51987), so the
+  /// flow hides the window instead of closing it. On Linux the hide,
+  /// show, and X-button interception go through the native
+  /// `lastwave/yt_webview` guard (`linux/runner/yt_webview_guard.cc`),
+  /// so even the window's own × button is safe (it hides).
+  static Webview? _cachedWindow;
+
+  /// Runs the flow. Only one login window at a time; concurrent calls
+  /// return `null` immediately.
+  static Future<String?> signIn() async {
+    if (_inflight) return null;
+    _inflight = true;
+    try {
+      return await _run();
+    } finally {
+      _inflight = false;
+    }
+  }
+
+  /// The cached window for out-of-flow uses (brand-channel watching).
+  /// Null when never created or dropped after an X-close.
+  static Webview? get cachedWindow => _cachedWindow;
+
+  /// Ensure the window exists and is visible. Used by flows that drive
+  /// the window themselves (channel watching).
+  static Future<Webview?> ensureWindow() => _ensureWindow();
+
+  /// Hide the window without destroying it.
+  static Future<void> hideWindow() async {
+    _expectVisible = false;
+    final w = _cachedWindow;
+    if (w == null) return;
+    if (Platform.isLinux) {
+      await YtWebviewGuard.hide();
+    } else {
+      try {
+        await w.setWebviewWindowVisibility(false);
+      } catch (_) {}
+    }
+  }
+
+  /// Tracks whether the login window SHOULD be visible right now.
+  /// Guards delayed foreground retries so they never re-show a
+  /// window the flow already hid (hide, never destroy).
+  static bool _expectVisible = false;
+
+  /// Bring the login window above the main window. A single
+  /// `bringToForeground()` often loses to Windows' foreground lock
+  /// silently (window ends up flashing in the taskbar / behind the
+  /// app — the "Add account opens in background" report), so the
+  /// first attempt is awaited inline and two more are re-asserted
+  /// shortly after. All guarded by [_expectVisible].
+  static Future<void> _foreground(Webview w) async {
+    _expectVisible = true;
+    if (Platform.isLinux) {
+      await YtWebviewGuard.show();
+      return;
+    }
+    await _foregroundOnce(w);
+    unawaited(_foregroundRetries(w));
+  }
+
+  static Future<void> _foregroundOnce(Webview w) async {
+    if (!identical(_cachedWindow, w) || !_expectVisible) return;
+    try {
+      await w.setWebviewWindowVisibility(true);
+    } catch (_) {}
+    if (!identical(_cachedWindow, w) || !_expectVisible) return;
+    try {
+      await w.bringToForeground();
+    } catch (_) {}
+  }
+
+  static Future<void> _foregroundRetries(Webview w) async {
+    for (var i = 0; i < 2; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+      if (!identical(_cachedWindow, w) || !_expectVisible) return;
+      await _foregroundOnce(w);
+    }
+  }
+
+  /// Read the active channel's delegation page ID from the page
+  /// (`ytcfg.data_.DELEGATED_SESSION_ID`). Null on the main channel
+  /// (primary identity — not a delegation), on non-YouTube pages, or
+  /// on any failure. Only 15–25 digit values are accepted.
+  static final RegExp _pageIdPattern = RegExp(r'^\d{15,25}$');
+
+  static Future<String?> readDelegatedPageId(
+      Webview webview) async {
+    try {
+      final raw = await webview
+          .evaluateJavaScript(
+              'window.ytcfg ? String(window.ytcfg.data_'
+              '.DELEGATED_SESSION_ID ?? "") : ""')
+          .timeout(const Duration(seconds: 8));
+      var v = (raw ?? '').trim();
+      // evaluateJavaScript returns JSON-encoded strings.
+      if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
+        v = v.substring(1, v.length - 1);
+      }
+      v = v.trim();
+      if (v.isEmpty || v == 'null' || v == 'undefined') {
+        return null;
+      }
+      final id = _pageIdPattern.hasMatch(v) ? v : null;
+      if (kDebugMode) {
+        debugPrint(
+            'YtWebLogin: delegated pageId=${id == null ? 'main' : '${id.length} digits'}');
+      }
+      return id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Reload the login page in the cached window without destroying
+  /// it. Used as a manual escape hatch (and by the passkey-stall
+  /// auto-recovery below): the WebView2 user-data folder persists
+  /// cookies, so a reload after Windows Hello completes lands the
+  /// page signed-in and the cookie poller captures normally.
+  static Future<void> reloadLoginPage() async {
+    final w = _cachedWindow;
+    if (w == null) return;
+    try {
+      w.launch(_loginUrl, triggerOnUrlRequestEvent: false);
+    } catch (_) {}
+    // The user just clicked Reload in the main window — pull the
+    // login window back above it (fresh input ⇒ foreground succeeds).
+    await _foreground(w);
+    if (kDebugMode) {
+      debugPrint('YtWebLogin: login page reloaded');
+    }
+  }
+
+  /// Pure page-text matcher for the Google passkey stall:
+  /// "Verifying that it's you..." + a passkey reference. Unit-tested;
+  /// kept as a static so tests don't need a WebView.
+  static bool isPasskeyVerificationStall(String pageText) {
+    final t = pageText.toLowerCase();
+    return t.contains('verifying') && t.contains('passkey');
+  }
+
+  /// Best-effort read of the current page text. False on any failure
+  /// (non-YouTube pages, JS errors, closed window).
+  static Future<bool> _isStuckOnPasskeyPage(Webview webview) async {
+    try {
+      final raw = await webview
+          .evaluateJavaScript(
+              'document.body ? document.body.innerText.slice(0, 2000) : ""')
+          .timeout(const Duration(seconds: 8));
+      var v = (raw ?? '').trim();
+      // evaluateJavaScript returns JSON-encoded strings; strip the
+      // surrounding quotes (escapes don't matter for matching).
+      if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
+        v = v.substring(1, v.length - 1);
+      }
+      if (v.isEmpty) return false;
+      return isPasskeyVerificationStall(v);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Title must match kYtWindowTitle in linux/runner/yt_webview_guard.cc
+  /// (ASCII-only: compared byte-wise in native code).
+  static const _windowTitle = 'Her Music YouTube Sign In';
+
+  /// Appended to the system WebView's default UA before the first
+  /// navigation. On macOS the plugin hosts a WKWebView whose default
+  /// Safari UA (no `Chrome/` token) makes music.youtube.com render
+  /// "not optimized for your browser". The native call sets
+  /// `customUserAgent = defaultUA + suffix`, so the leading space
+  /// matters. Called once per window creation; the cached window
+  /// keeps it for reuse.
+  static const _macChromeSuffix =
+      ' Chrome/131.0.0.0 Safari/537.36';
+
+  static Future<Webview?> _ensureWindow() async {
+    final cached = _cachedWindow;
+    if (cached != null) {
+      // Linux: native guard (the plugin visibility call is a no-op
+      // there). Elsewhere: the plugin call.
+      if (Platform.isLinux) {
+        if (await YtWebviewGuard.show()) return cached;
+      } else {
+        try {
+          // Liveness probe: throws when the native window is gone,
+          // falling through to fresh-create below.
+          await cached.setWebviewWindowVisibility(true);
+          await _foreground(cached);
+          return cached;
+        } catch (_) {}
+      }
+      // Cached window is gone — create fresh below.
+      _cachedWindow = null;
+    }
+    try {
+      if (!await WebviewWindow.isWebviewAvailable()) return null;
+    } catch (_) {
+      return null;
+    }
+    try {
+      final w = await WebviewWindow.create(
+        configuration: CreateConfiguration(
+          title: _windowTitle,
+          titleBarHeight: 40,
+          windowWidth: 480,
+          windowHeight: 760,
+        ),
+      );
+      _cachedWindow = w;
+      if (Platform.isMacOS) {
+        try {
+          await w.setApplicationNameForUserAgent(_macChromeSuffix);
+        } catch (_) {}
+      }
+      // If the window ever really dies, drop the cache so the next
+      // sign-in creates a fresh window instead of talking to a dead one.
+      unawaited(w.onClose.then((_) {
+        if (identical(_cachedWindow, w)) _cachedWindow = null;
+      }));
+      if (Platform.isLinux) {
+        // Ensure it is visible (create shows it; harmless if so).
+        await YtWebviewGuard.show();
+      } else {
+        // A fresh window doesn't reliably activate above the main
+        // window on its own — assert z-order explicitly.
+        await _foreground(w);
+      }
+      return w;
+    } catch (_) {
+      // No usable system WebView (missing webkit2gtk/WebView2/etc).
+      return null;
+    }
+  }
+
+  /// Page ID captured alongside the last successful sign-in (null =
+  /// main channel). Read after [signIn]/[signInFresh] return non-null.
+  static String? lastCapturedPageId;
+
+  /// Clean-room login for adding another Google account: signs the jar
+  /// out in place (no window destroy — `clearAll` would close windows
+  /// into the upstream destroy bug), then runs the normal capture.
+  static const _logoutUrl = 'https://accounts.google.com/Logout';
+
+  static Future<String?> signInFresh() async {
+    final w = await _ensureWindow();
+    if (w == null) return null;
+    try {
+      // Same Windows gate bypass as _run (see comment there).
+      w.launch(_logoutUrl, triggerOnUrlRequestEvent: false);
+      // Show progress: the logout round-trip is the first visible
+      // step of the add-account flow, and asserting z-order here
+      // (not just after the later login launch) keeps the window
+      // from settling behind the app during the 4s wait.
+      await _foreground(w);
+      // Let the logout round-trip land before the login page loads.
+      await Future<void>.delayed(const Duration(seconds: 4));
+    } catch (_) {}
+    return signIn();
+  }
+
+  /// Wait for a logged-in session in an already-driven window (used
+  /// by flows that navigate the window themselves). Null on timeout
+  /// or window close.
+  static Future<String?> waitForLoginSession(
+    Webview webview, {
+    Duration timeout = _timeout,
+  }) async {
+    try {
+      return await _waitForLogin(webview).timeout(
+        timeout,
+        onTimeout: () => null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<String?> _run() async {
+    final w = await _ensureWindow();
+    if (w == null) return null;
+    try {
+      // Windows: load directly without the navigation-approval round-trip.
+      // With triggerOnUrlRequestEvent=true (the default) native WebView2
+      // cancels the navigation and only re-issues it after a Dart
+      // round-trip; if that silently fails the window sits on about:blank
+      // forever.
+      w.launch(_loginUrl, triggerOnUrlRequestEvent: false);
+      // Re-assert z-order AFTER navigation starts: a single
+      // pre-launch foreground is what left the window behind the app
+      // when Windows' foreground lock swallowed the attempt.
+      await _foreground(w);
+      if (kDebugMode) {
+        debugPrint('YtWebLogin: window launched');
+      }
+      final header = await _waitForLogin(w).timeout(
+        _timeout,
+        onTimeout: () => null,
+      );
+      // Capture the active channel alongside the jar (null = main).
+      // Best-effort: a miss just means main-channel routing.
+      lastCapturedPageId = null;
+      if (header != null) {
+        lastCapturedPageId = await readDelegatedPageId(w);
+      }
+      return header;
+    } catch (_) {
+      return null;
+    } finally {
+      // Hide, never destroy (see _cachedWindow note above). Linux goes
+      // through the native guard; elsewhere the plugin call.
+      // Clears _expectVisible so in-flight foreground retries from
+      // _foreground() never re-show the just-hidden window.
+      _expectVisible = false;
+      if (Platform.isLinux) {
+        await YtWebviewGuard.hide();
+      } else {
+        try {
+          await w.setWebviewWindowVisibility(false);
+        } catch (_) {}
+      }
+      if (kDebugMode) {
+        debugPrint('YtWebLogin: window hidden');
+      }
+    }
+  }
+
+  /// Polls the cookie jar until login markers appear or the user
+  /// closes the window. Single in-flight read per cycle: the native
+  /// reader runs on the GTK thread, so a second overlapping read
+  /// (or a read landing after destroy) risks a use-after-free.
+  ///
+  /// Windows passkey recovery: after Windows Hello completes, the
+  /// embedded WebView2 sometimes leaves Google's "Verifying that it's
+  /// you..." page stalled (the WebAuthn result never resumes the page
+  /// JS). The session IS minted though — a reload lands signed-in —
+  /// so when the stall text persists, the login page is reloaded
+  /// in place (cookies survive) instead of polling forever.
+  static Future<String?> _waitForLogin(Webview webview) async {
+    // Give the page a moment to load before the first read.
+    await Future<void>.delayed(const Duration(seconds: 4));
+    var closed = false;
+    unawaited(webview.onClose.then((_) => closed = true));
+    var stuckCycles = 0;
+    var autoReloads = 0;
+    while (!closed) {
+      final header = await _readHeader(webview);
+      if (header != null) return header;
+      if (closed) return null;
+      // Stall check runs sequentially after the cookie read (never
+      // overlapping it). ~5 consecutive hits ≈ 10s stuck.
+      var stuck = false;
+      try {
+        stuck = await _isStuckOnPasskeyPage(webview);
+      } catch (_) {
+        stuck = false;
+      }
+      if (closed) return null;
+      if (stuck) {
+        stuckCycles++;
+        if (stuckCycles >= 5 && autoReloads < 2) {
+          autoReloads++;
+          stuckCycles = 0;
+          if (kDebugMode) {
+            debugPrint(
+                'YtWebLogin: passkey stall detected, reloading ($autoReloads/2)');
+          }
+          try {
+            webview.launch(_loginUrl,
+                triggerOnUrlRequestEvent: false);
+          } catch (_) {}
+          // Keep the reloaded page above the app (same foreground
+          // reason as the initial launch).
+          await _foreground(webview);
+          // Let the reloaded page settle before judging it again.
+          await Future<void>.delayed(const Duration(seconds: 8));
+          continue;
+        }
+      } else {
+        stuckCycles = 0;
+      }
+      await Future<void>.delayed(_pollInterval);
+    }
+    return null;
+  }
+
+  /// Normalizes a cookie name from the system WebView jar.
+  ///
+  /// Windows WebView2 appends a trailing NUL (U+0000) to most cookie
+  /// names (probed 2026-09: SAPISID arrives as [83,65,80,73,83,73,68,0]),
+  /// which silently breaks exact-match login detection and header keys.
+  /// trim() skips NUL (not whitespace), so strip it explicitly, then
+  /// whitespace and trailing '=' (never legal in a cookie name).
+  static String _normName(Object? raw) {
+    var s = raw is String ? raw : raw.toString();
+    while (s.endsWith('\x00')) {
+      s = s.substring(0, s.length - 1);
+    }
+    s = s.trim();
+    while (s.endsWith('=')) {
+      s = s.substring(0, s.length - 1);
+    }
+    return s;
+  }
+
+  /// Normalizes a cookie value: strip only trailing NULs. Base64 '='
+  /// padding and every other character is significant and preserved.
+  static String _normValue(Object? raw) {
+    var s = raw is String ? raw : raw.toString();
+    while (s.endsWith('\x00')) {
+      s = s.substring(0, s.length - 1);
+    }
+    return s;
+  }
+
+  /// Returns a Cookie header once login markers are present, else null.
+  ///
+  /// (Untyped locals: `WebviewCookie` lives in the package's
+  /// `src/cookie.dart` which the barrel file doesn't export, so the
+  /// type is inferred from `getAllCookies()` instead of named.)
+  static Future<String?> _readHeader(Webview webview) async {
+    late final List cookies;
+    try {
+      cookies = await webview
+          .getAllCookies()
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      return null;
+    }
+    String? pick(String name) {
+      for (final c in cookies) {
+        // Compare normalized names; a value of only a stray NUL counts
+        // as empty. Values are otherwise untouched (base64 padding is
+        // significant).
+        final v = _normValue(c.value);
+        if (_normName(c.name) == name && v.isNotEmpty) {
+          return v;
+        }
+      }
+      return null;
+    }
+
+    final hasSapisid = pick('__Secure-3PAPISID') != null ||
+        pick('SAPISID') != null;
+    final loggedIn = pick('LOGIN_INFO') != null;
+    if (!hasSapisid || !loggedIn) return null;
+
+    // Jar may hold cookies from other Google properties; keep only
+    // YouTube/Google session cookies for the header.
+    final pairs = <String, String>{};
+    for (final c in cookies) {
+      final domain = c.domain.toLowerCase();
+      if (!domain.contains('youtube.com') &&
+          !domain.contains('google.com')) {
+        continue;
+      }
+      final normName = _normName(c.name);
+      final normValue = _normValue(c.value);
+      if (normName.isEmpty || normValue.isEmpty) continue;
+      pairs[normName] = normValue;
+    }
+    if (pairs.isEmpty) return null;
+    final names = pairs.keys.toList()..sort();
+    final header =
+        names.map((n) => '$n=${pairs[n]}').join('; ');
+    if (kDebugMode) {
+      debugPrint(
+          'YtWebLogin captured ${pairs.length} cookies');
+    }
+    return header;
+  }
+}

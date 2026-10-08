@@ -1,0 +1,60 @@
+# Her Music — Linux system packages (deb + rpm) via nFPM.
+# Built ONLY for releases (v* tags); see .github/workflows/desktop.yml.
+# VERSION comes from the tag (v1.0.0 -> 1.0.0); nFPM expands env vars.
+name: her_music
+arch: amd64
+platform: linux
+version: ${VERSION}
+# Transitional shims for the v1.0.0 rename (her_music-desktop -> her_music):
+# deb maps replaces->Replaces, conflicts->Conflicts; rpm maps
+# replaces->Obsoletes. Lets the new package supersede the old name
+# instead of co-installing under /opt/her_music twice.
+replaces:
+  - her_music-desktop
+conflicts:
+  - her_music-desktop
+section: sound
+priority: optional
+maintainer: Ankit Kumar <https://github.com/ankitxrishav/Her-Music-Desktop>
+description: |-
+  Her Music — desktop music player: YouTube Music, lossless audio,
+  word-synced lyrics and Last.fm scrobbling.
+vendor: Ankit Kumar
+homepage: https://github.com/ankitxrishav/Her-Music-Desktop
+license: Proprietary — all rights reserved (no LICENSE file yet)
+
+contents:
+  # Release bundle straight into /opt.
+  - src: build/linux/x64/release/bundle
+    dst: /opt/her_music
+    type: tree
+  # CLI entry point.
+  - src: /opt/her_music/her_music_desktop
+    dst: /usr/bin/her_music
+    type: symlink
+  # Desktop integration.
+  - src: linux/packaging/her_music.desktop
+    dst: /usr/share/applications/her_music.desktop
+  - src: her_music-logo.png
+    dst: /usr/share/icons/hicolor/512x512/apps/her_music.png
+
+overrides:
+  deb:
+    depends:
+      - libgtk-3-0
+      - libwebkit2gtk-4.1-0
+      - libayatana-appindicator3-1 | libappindicator3-1
+      - libasound2
+      - libmpv2
+      # hotkey_manager links libkeybinder-3.0 at runtime: without this,
+      # global shortcuts are dead on distros that don't ship it.
+      - libkeybinder-3.0-0
+  rpm:
+    depends:
+      - gtk3
+      - webkit2gtk4.1
+      - libappindicator-gtk3
+      - alsa-lib
+      - mpv-libs
+      # Same as above (Fedora name for the keybinder3 runtime).
+      - keybinder3
