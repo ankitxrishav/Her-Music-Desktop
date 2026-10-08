@@ -28,9 +28,12 @@ import '../../features/lyrics/lyrics_providers.dart';
 import '../theme/tokens.dart';
 import '../theme/brand_icons.dart';
 import '../../features/presence/discord_presence_service.dart';
+import '../../features/connect/couple_sync_service.dart';
 
 const _waveSettingsSections = [
   ('general', 'General', FluentIcons.settings),
+  ('account', 'Account & Sync', FluentIcons.contact),
+  ('couple', 'Couple Space', FluentIcons.heart),
   ('playback', 'Playback', FluentIcons.play),
   ('audio', 'Audio', FluentIcons.speakers),
   ('downloads', 'Downloads', FluentIcons.download),
@@ -187,6 +190,10 @@ class _SectionBody extends ConsumerWidget {
     switch (section) {
       case 'general':
         return _General(onUpdate: onUpdate);
+      case 'account':
+        return _AccountSync(onUpdate: onUpdate);
+      case 'couple':
+        return _CoupleSpaceSettings(onUpdate: onUpdate);
       case 'playback':
         return _Playback(onUpdate: onUpdate);
       case 'audio':
@@ -256,57 +263,69 @@ class _Group extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
+  final Widget? trailing;
   const _Group({
     required this.title,
     required this.subtitle,
     required this.child,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = FluentTheme.of(context);
-    final stroke = theme.resources.cardStrokeColorDefault;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-          decoration: BoxDecoration(
-            color: theme.resources.cardBackgroundFillColorDefault,
-            border: Border.all(color: stroke),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+    final dark = waveIsDark(context);
+    final cardBg = dark ? const Color(0x18FFFFFF) : const Color(0x08000000);
+    final headerBg = dark ? const Color(0x22FFFFFF) : const Color(0x0E000000);
+    final borderColor = dark ? const Color(0x1FFFFFFF) : const Color(0x14000000);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.25 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: WaveType.sectionTitle),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: WaveType.meta.copyWith(
-                  color: waveTextSecondary(context),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              color: headerBg,
+              border: Border(bottom: BorderSide(color: borderColor)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: WaveType.sectionTitle.copyWith(fontWeight: FontWeight.w600)),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(subtitle, style: WaveType.meta.copyWith(color: waveTextSecondary(context))),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.resources.cardBackgroundFillColorSecondary,
-            border: Border(
-              left: BorderSide(color: stroke),
-              right: BorderSide(color: stroke),
-              bottom: BorderSide(color: stroke),
-            ),
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(6),
+                ?trailing,
+              ],
             ),
           ),
-          child: child,
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: child,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -884,7 +903,7 @@ class _Ytm extends ConsumerWidget {
                   child: Text('Not connected', style: WaveType.trackTitle),
                 ),
                 FilledButton(
-                  onPressed: () => _ytConnect(context, ref),
+                  onPressed: () => ytConnect(context, ref),
                   child: const Text('Connect'),
                 ),
               ],
@@ -973,7 +992,7 @@ class _Ytm extends ConsumerWidget {
   /// In-app Google sign-in: opens music.youtube.com in a system
   /// WebView, waits for login, captures cookies automatically, then
   /// runs the shared roster upsert + chooser tail.
-  Future<void> _ytConnect(BuildContext context, WidgetRef ref) async {
+  static Future<void> ytConnect(BuildContext context, WidgetRef ref) async {
     var cancelled = false;
     // Non-blocking wait dialog — Cancel just stops listening; the
     // user closes the browser window via the native guard (hide).
@@ -2324,6 +2343,361 @@ class _SwitchRow extends StatelessWidget {
           ToggleSwitch(checked: value, onChanged: onChanged),
         ],
       ),
+    );
+  }
+}
+
+
+class _AccountSync extends ConsumerStatefulWidget {
+  final Future<void> Function(Future<void> Function(Prefs)) onUpdate;
+  const _AccountSync({required this.onUpdate});
+
+  @override
+  ConsumerState<_AccountSync> createState() => _AccountSyncState();
+}
+
+class _AccountSyncState extends ConsumerState<_AccountSync> {
+  late final TextEditingController _emailCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentEmail = ref.read(coupleSyncProvider).myEmail;
+    _emailCtrl = TextEditingController(text: currentEmail);
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sync = ref.watch(coupleSyncProvider);
+    final ytConn = ref.watch(ytConnectionProvider);
+    final ytLoggedIn = ytConn.connected;
+    final account = ref.watch(ytAccountProvider).valueOrNull;
+    final otherDevice = sync.otherDeviceSync;
+    final dark = waveIsDark(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Group(
+          title: "YouTube Music Account",
+          subtitle: "Sign in to access your YouTube Music library, playlists & recommendations",
+          trailing: FilledButton(
+            onPressed: () => _Ytm.ytConnect(context, ref),
+            child: Text(ytLoggedIn ? "Switch Account" : "Sign In with Google"),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: ytLoggedIn
+                      ? const Color(0xFFFF0000).withValues(alpha: 0.15)
+                      : (dark ? const Color(0x1AFFFFFF) : const Color(0x0A000000)),
+                ),
+                child: Center(
+                  child: Icon(
+                    FluentIcons.video,
+                    color: ytLoggedIn ? const Color(0xFFFF0000) : waveTextSecondary(context),
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ytLoggedIn
+                          ? (account?.name ?? "YouTube Music Connected")
+                          : "Not signed in (Guest Mode)",
+                      style: WaveType.trackTitle,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      ytLoggedIn
+                          ? (account?.handle ?? "Syncing with your YouTube account")
+                          : "Sign in via webview to access personal mixes and library",
+                      style: WaveType.meta.copyWith(color: waveTextSecondary(context)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _Group(
+          title: "Tri-Platform Cloud Sync (Android, macOS & Windows)",
+          subtitle: "Synchronize playback, handoff songs, and link devices via your Google / Email ID",
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextBox(
+                      controller: _emailCtrl,
+                      placeholder: "Enter your email ID (e.g. yourname@gmail.com)",
+                      prefix: const Padding(
+                        padding: EdgeInsets.only(left: 10),
+                        child: Icon(FluentIcons.mail, size: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  FilledButton(
+                    onPressed: () {
+                      final email = _emailCtrl.text.trim();
+                      if (email.isNotEmpty) {
+                        ref.read(coupleSyncProvider.notifier).setMyEmail(email);
+                      }
+                    },
+                    child: const Text("Save & Connect"),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: dark ? const Color(0x12FFFFFF) : const Color(0x08000000),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: waveDivider(context)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          FluentIcons.cell_phone,
+                          size: 16,
+                          color: otherDevice != null ? const Color(0xFF10B981) : waveTextSecondary(context),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          otherDevice != null
+                              ? "Active Device Linked: ${otherDevice.platform.toUpperCase()}"
+                              : "Waiting for Android phone or other devices...",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: otherDevice != null ? const Color(0xFF10B981) : null,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0x2210B981),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            "MQTT ACTIVE",
+                            style: TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (otherDevice != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        "Now Playing on ${otherDevice.platform}: \"${otherDevice.title}\" by ${otherDevice.artist}",
+                        style: WaveType.meta,
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          FilledButton(
+                            onPressed: () => ref.read(coupleSyncProvider.notifier).handoffFromDevice(),
+                            child: const Text("Handoff Playback to This Machine"),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CoupleSpaceSettings extends ConsumerStatefulWidget {
+  final Future<void> Function(Future<void> Function(Prefs)) onUpdate;
+  const _CoupleSpaceSettings({required this.onUpdate});
+
+  @override
+  ConsumerState<_CoupleSpaceSettings> createState() => _CoupleSpaceSettingsState();
+}
+
+class _CoupleSpaceSettingsState extends ConsumerState<_CoupleSpaceSettings> {
+  late final TextEditingController _partnerEmailCtrl;
+  late final TextEditingController _partnerCodeCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final sync = ref.read(coupleSyncProvider);
+    _partnerEmailCtrl = TextEditingController(text: sync.partnerEmail);
+    _partnerCodeCtrl = TextEditingController(text: sync.partnerCode);
+  }
+
+  @override
+  void dispose() {
+    _partnerEmailCtrl.dispose();
+    _partnerCodeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sync = ref.watch(coupleSyncProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Group(
+          title: "Couple Space Status",
+          subtitle: sync.isPaired
+              ? "Paired with ${sync.partnerName.isNotEmpty ? sync.partnerName : sync.partnerRole} 💕"
+              : "Link your app with your partner across Android, macOS, and Windows",
+          trailing: sync.isPaired
+              ? Button(
+                  onPressed: () => ref.read(coupleSyncProvider.notifier).unpair(),
+                  child: const Text("Unpair Space"),
+                )
+              : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: sync.isPaired ? const Color(0x3310B981) : const Color(0x33FF4081),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      sync.isPaired ? "PAIRED & SYNCHRONIZED 💕" : "NOT PAIRED",
+                      style: TextStyle(
+                        color: sync.isPaired ? const Color(0xFF10B981) : const Color(0xFFFF4081),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (sync.isPaired) ...[
+                    Text("Live Playback Sync", style: WaveType.meta),
+                    const SizedBox(width: 8),
+                    ToggleSwitch(
+                      checked: sync.isLiveSyncing,
+                      onChanged: (val) => ref.read(coupleSyncProvider.notifier).toggleLiveSync(val),
+                    ),
+                  ],
+                ],
+              ),
+              if (sync.isPaired) ...[
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    FilledButton(
+                      onPressed: () => ref.read(coupleSyncProvider.notifier).pushCurrentSongToPartner(),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(FluentIcons.send, size: 14),
+                          SizedBox(width: 6),
+                          Text("Push Currently Playing Song Now"),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (!sync.isPaired) ...[
+          const SizedBox(height: 16),
+          _Group(
+            title: "1-Click Direct Email Pairing",
+            subtitle: "Enter both your email and your partner's email to auto-connect on all systems",
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextBox(
+                  controller: _partnerEmailCtrl,
+                  placeholder: "Partner's Google or Email ID",
+                  prefix: const Padding(
+                    padding: EdgeInsets.only(left: 10),
+                    child: Icon(FluentIcons.heart, size: 16),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () {
+                    final pEmail = _partnerEmailCtrl.text.trim();
+                    if (pEmail.isNotEmpty) {
+                      ref.read(coupleSyncProvider.notifier).linkByEmail(pEmail);
+                    }
+                  },
+                  child: const Text("Connect by Email"),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          _Group(
+            title: "Invite Code Fallback",
+            subtitle: "Share your 6-digit code or enter your partner's code",
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Your Invite Code: ${sync.myCode}", style: WaveType.trackTitle),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextBox(
+                        controller: _partnerCodeCtrl,
+                        placeholder: "Enter partner's 6-digit invite code",
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    FilledButton(
+                      onPressed: () {
+                        final code = _partnerCodeCtrl.text.trim();
+                        if (code.isNotEmpty) {
+                          ref.read(coupleSyncProvider.notifier).pairWithCode(code);
+                        }
+                      },
+                      child: const Text("Pair with Code"),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

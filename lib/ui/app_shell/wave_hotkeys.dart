@@ -175,7 +175,7 @@ bool handleWaveHotkey(KeyEvent event, WaveHotkeyActions a) {
 
   // --- Palette + search focus: work while typing. Strict SingleActivator
   // parity (no Alt/Meta/Shift stragglers). ---
-  if (ctrl && !alt && !meta && !shift && isDown) {
+  if ((ctrl || meta) && !alt && !shift && isDown) {
     if (k == LogicalKeyboardKey.keyK) {
       a.openPalette();
       return true;
@@ -208,12 +208,12 @@ bool handleWaveHotkey(KeyEvent event, WaveHotkeyActions a) {
   }
 
   // --- Alt+Left/Right nav (strict: no Ctrl/Meta/Shift, like SingleActivator). ---
-  if (alt && !ctrl && !meta && !shift && isDown) {
-    if (k == LogicalKeyboardKey.arrowLeft) {
+  if ((alt || meta) && !ctrl && !shift && isDown) {
+    if (k == LogicalKeyboardKey.arrowLeft || k == LogicalKeyboardKey.bracketLeft) {
       a.goBack();
       return true;
     }
-    if (k == LogicalKeyboardKey.arrowRight) {
+    if (k == LogicalKeyboardKey.arrowRight || k == LogicalKeyboardKey.bracketRight) {
       a.goForward();
       return true;
     }

@@ -189,3 +189,65 @@ class CouplePushSong {
     'timestamp': timestamp,
   };
 }
+
+class DeviceSyncPayload {
+  final String deviceId;
+  final String deviceName;
+  final String platform;
+  final String email;
+  final String songId;
+  final String title;
+  final String artist;
+  final String? thumbnailUrl;
+  final bool isPlaying;
+  final int positionMs;
+  final int durationMs;
+  final int timestamp;
+
+  const DeviceSyncPayload({
+    this.deviceId = '',
+    this.deviceName = '',
+    this.platform = '',
+    this.email = '',
+    this.songId = '',
+    this.title = '',
+    this.artist = '',
+    this.thumbnailUrl,
+    this.isPlaying = false,
+    this.positionMs = 0,
+    this.durationMs = 0,
+    this.timestamp = 0,
+  });
+
+  factory DeviceSyncPayload.fromJson(Map<String, dynamic> json) {
+    return DeviceSyncPayload(
+      deviceId: json['deviceId'] as String? ?? '',
+      deviceName: json['deviceName'] as String? ?? '',
+      platform: json['platform'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      songId: json['songId'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      artist: json['artist'] as String? ?? '',
+      thumbnailUrl: json['thumbnailUrl'] as String?,
+      isPlaying: json['isPlaying'] as bool? ?? false,
+      positionMs: (json['positionMs'] as num?)?.toInt() ?? 0,
+      durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
+      timestamp: (json['timestamp'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'deviceId': deviceId,
+    'deviceName': deviceName,
+    'platform': platform,
+    'email': email,
+    'songId': songId,
+    'title': title,
+    'artist': artist,
+    if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+    'isPlaying': isPlaying,
+    'positionMs': positionMs,
+    'durationMs': durationMs,
+    'timestamp': timestamp,
+  };
+}

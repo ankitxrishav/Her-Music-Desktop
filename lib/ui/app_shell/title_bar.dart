@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -64,7 +65,7 @@ class WaveTitleBar extends ConsumerWidget {
                 (maxW * 0.28).clamp(140.0, 300.0).toDouble();
             return Row(
               children: [
-                const SizedBox(width: 6),
+                SizedBox(width: Platform.isMacOS ? 80 : 8),
                 _BarBtn(
                   tooltip: 'Toggle navigation',
                   icon: WaveIcons.panelLeft,
@@ -165,7 +166,8 @@ class WaveTitleBar extends ConsumerWidget {
                 const SizedBox(width: 2),
                 _AppMenu(),
                 const SizedBox(width: 6),
-                const _WindowButtons(),
+                if (!Platform.isMacOS) const _WindowButtons(),
+                if (Platform.isMacOS) const SizedBox(width: 12),
               ],
             );
           },

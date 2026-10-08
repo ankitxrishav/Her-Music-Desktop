@@ -18,6 +18,8 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
   final TextEditingController _partnerCodeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _chatController = TextEditingController();
+  final TextEditingController _myEmailController = TextEditingController();
+  final TextEditingController _partnerEmailController = TextEditingController();
   final ScrollController _chatScroll = ScrollController();
 
   @override
@@ -25,6 +27,8 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
     super.initState();
     final sync = ref.read(coupleSyncProvider);
     if (sync.myName.isNotEmpty) { _nameController.text = sync.myName; }
+    if (sync.myEmail.isNotEmpty) { _myEmailController.text = sync.myEmail; }
+    if (sync.partnerEmail.isNotEmpty) { _partnerEmailController.text = sync.partnerEmail; }
   }
 
   @override
@@ -32,6 +36,8 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
     _partnerCodeController.dispose();
     _nameController.dispose();
     _chatController.dispose();
+    _myEmailController.dispose();
+    _partnerEmailController.dispose();
     _chatScroll.dispose();
     super.dispose();
   }
@@ -140,6 +146,69 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _card(
+          dark: dark,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(FluentIcons.heart, color: Color(0xFFFF4081), size: 20),
+                  SizedBox(width: 10),
+                  Text("Instant Pair by Email (Tri-Platform Phone & Laptop)", style: WaveType.sectionTitle),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                "When you and your partner enter each other\x27s email address, your Android phones and laptops automatically sync into the exact same Couple Space without needing invite codes.",
+                style: WaveType.meta.copyWith(color: waveTextSecondary(context)),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextBox(
+                      controller: _myEmailController,
+                      placeholder: "Your Google / Email ID",
+                      prefix: const Padding(
+                        padding: EdgeInsets.only(left: 10),
+                        child: Icon(FluentIcons.mail, size: 16),
+                      ),
+                      onChanged: (val) => ref.read(coupleSyncProvider.notifier).setMyEmail(val),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextBox(
+                      controller: _partnerEmailController,
+                      placeholder: "Partner\x27s Google / Email ID",
+                      prefix: const Padding(
+                        padding: EdgeInsets.only(left: 10),
+                        child: Icon(FluentIcons.heart, size: 16),
+                      ),
+                      onChanged: (val) => ref.read(coupleSyncProvider.notifier).setPartnerEmail(val),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: () {
+                      final pEmail = _partnerEmailController.text.trim();
+                      if (pEmail.isNotEmpty) {
+                        ref.read(coupleSyncProvider.notifier).linkByEmail(pEmail);
+                      }
+                    },
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.all(const Color(0xFFFF4081)),
+                      shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    ),
+                    child: const Text("Connect Couple Space 💕", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -817,11 +886,18 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
 
   Widget _card({required bool dark, required Widget child}) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: dark ? WaveColors.surface : WaveColors.lightSurface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: waveDivider(context)),
+        color: dark ? const Color(0x18FFFFFF) : const Color(0x08000000),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: dark ? const Color(0x1FFFFFFF) : const Color(0x14000000)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: dark ? 0.25 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: child,
     );

@@ -1,15 +1,56 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
 
 import 'couple_models.dart';
 
 class FirebaseCoupleSync {
-  static const String defaultBaseUrl = 'https://her-music-53197-default-rtdb.firebaseio.com';
-  static const String relayBaseUrl = 'https://ntfy.sh';
-  static const String projectTag = 'her_sync_53197';
+  static const List<String> brokers = [
+    'broker.emqx.io',
+    'broker.hivemq.com',
+    'test.mosquitto.org',
+  ];
 
-  static final HttpClient _client = HttpClient()
-    ..connectionTimeout = const Duration(seconds: 5);
+  static MqttServerClient? _client;
+  static bool _connecting = false;
+  static int _brokerIndex = 0;
+
+  static final Map<String, CoupleInvite> _invitesCache = {};
+  static final Map<String, CoupleLivePlayback> _liveCache = {};
+  static final Map<String, CouplePushSong> _pushCache = {};
+  static final Map<String, List<CoupleChatMessage>> _chatCache = {};
+  static final Map<String, DeviceSyncPayload> _deviceCache = {};
+
+  static final StreamController<CoupleLivePlayback> _liveStream =
+      StreamController<CoupleLivePlayback>.broadcast();
+  static final StreamController<CouplePushSong> _pushStream =
+      StreamController<CouplePushSong>.broadcast();
+  static final StreamController<CoupleChatMessage> _chatStream =
+      StreamController<CoupleChatMessage>.broadcast();
+  static final StreamController<CoupleInvite> _inviteStream =
+      StreamController<CoupleInvite>.broadcast();
+  static final StreamController<DeviceSyncPayload> _deviceStream =
+      StreamController<DeviceSyncPayload>.broadcast();
+
+  static Stream<CoupleLivePlayback> get liveStream => _liveStream.stream;
+  static Stream<CouplePushSong> get pushStream => _pushStream.stream;
+  static Stream<CoupleChatMessage> get chatStream => _chatStream.stream;
+  static Stream<CoupleInvite> get inviteStream => _inviteStream.stream;
+  static Stream<DeviceSyncPayload> get deviceStream => _deviceStream.stream;
+
+  static final Set<String> _subscribedTopics = {};
+
+  static String hashEmail(String email) {
+    final clean = email.trim().toLowerCase();
+    if (clean.isEmpty) return '';
+    final bytes = utf8.encode(clean);
+    return sha256.convert(bytes).toString().substring(0, 16);
+  }
 
   static String calculateSpaceId(String codeA, String codeB) {
     final a = codeA.trim().toUpperCase();
@@ -18,77 +59,139 @@ class FirebaseCoupleSync {
     return list.join('-');
   }
 
-  static Future<bool> publishRelay(String topicSuffix, String payload) async {
+  static String calculateEmailSpaceId(String emailA, String emailB) {
+    final a = hashEmail(emailA);
+    final b = hashEmail(emailB);
+    if (a.isEmpty || b.isEmpty) return '';
+    final list = [a, b]..sort();
+    return 'couple_${list.join("_")}';
+  }
+
+  static Future<bool> ensureConnected() async {
+    if (_client?.connectionStatus?.state == MqttConnectionState.connected) {
+      return true;
+    }
+    if (_connecting) {
+      for (var i = 0; i < 20; i++) {
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (_client?.connectionStatus?.state == MqttConnectionState.connected) {
+          return true;
+        }
+      }
+    }
+    _connecting = true;
     try {
-      final cleanTopic = '${projectTag}_${topicSuffix.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}';
-      final uri = Uri.parse('$relayBaseUrl/$cleanTopic');
-      final request = await _client.postUrl(uri);
-      request.headers.contentType = ContentType.json;
-      request.write(payload);
-      final response = await request.close();
-      await response.drain();
-      return response.statusCode >= 200 && response.statusCode < 300;
+      final host = brokers[_brokerIndex % brokers.length];
+      final clientId = 'her_desktop_${Platform.operatingSystem}_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}';
+      final client = MqttServerClient(host, clientId);
+      client.port = 1883;
+      client.keepAlivePeriod = 30;
+      client.autoReconnect = true;
+      client.logging(on: false);
+
+      client.onDisconnected = () {
+        _subscribedTopics.clear();
+      };
+
+      final status = await client.connect();
+      if (status?.state == MqttConnectionState.connected) {
+        _client = client;
+        _listenToUpdates(client);
+        _resubscribeAll();
+        _connecting = false;
+        return true;
+      }
+    } catch (_) {
+      _brokerIndex++;
+    }
+    _connecting = false;
+    return false;
+  }
+
+  static void _resubscribeAll() {
+    final topics = Set<String>.from(_subscribedTopics);
+    _subscribedTopics.clear();
+    for (final topic in topics) {
+      subscribe(topic);
+    }
+  }
+
+  static void _listenToUpdates(MqttServerClient client) {
+    client.updates?.listen((List<MqttReceivedMessage<MqttMessage>> messages) {
+      for (final msg in messages) {
+        try {
+          final pub = msg.payload as MqttPublishMessage;
+          final topic = msg.topic;
+          final payload = MqttPublishPayload.bytesToStringAsString(pub.payload.message);
+          _handleIncoming(topic, payload);
+        } catch (_) {}
+      }
+    });
+  }
+
+  static void _handleIncoming(String topic, String payload) {
+    if (payload.trim().isEmpty) return;
+    try {
+      final json = jsonDecode(payload) as Map<String, dynamic>;
+      if (topic.startsWith('her_music/space/') && topic.endsWith('/live')) {
+        final live = CoupleLivePlayback.fromJson(json);
+        final spaceId = topic.split('/')[2];
+        _liveCache['${spaceId}_${live.senderRole.toLowerCase()}'] = live;
+        _liveStream.add(live);
+      } else if (topic.startsWith('her_music/space/') && topic.endsWith('/push')) {
+        final push = CouplePushSong.fromJson(json);
+        final spaceId = topic.split('/')[2];
+        _pushCache[spaceId] = push;
+        _pushStream.add(push);
+      } else if (topic.startsWith('her_music/space/') && topic.endsWith('/chat')) {
+        final chat = CoupleChatMessage.fromJson(json);
+        final spaceId = topic.split('/')[2];
+        final list = _chatCache[spaceId] ?? <CoupleChatMessage>[];
+        if (!list.any((m) => m.id == chat.id)) {
+          list.add(chat);
+          _chatCache[spaceId] = list;
+          _chatStream.add(chat);
+        }
+      } else if (topic.startsWith('her_music/invite/')) {
+        final inv = CoupleInvite.fromJson(json);
+        final code = topic.split('/').last;
+        _invitesCache[code] = inv;
+        _inviteStream.add(inv);
+      } else if (topic.startsWith('her_music/user/') && topic.endsWith('/device_sync')) {
+        final dev = DeviceSyncPayload.fromJson(json);
+        _deviceCache[dev.email] = dev;
+        _deviceStream.add(dev);
+      }
+    } catch (_) {}
+  }
+
+  static void subscribe(String topic) {
+    if (_subscribedTopics.contains(topic)) return;
+    _subscribedTopics.add(topic);
+    if (_client?.connectionStatus?.state == MqttConnectionState.connected) {
+      _client?.subscribe(topic, MqttQos.atLeastOnce);
+    } else {
+      ensureConnected().then((ok) {
+        if (ok) _client?.subscribe(topic, MqttQos.atLeastOnce);
+      });
+    }
+  }
+
+  static Future<bool> publish(String topic, String payload, {bool retain = false}) async {
+    final ok = await ensureConnected();
+    if (!ok || _client == null) return false;
+    try {
+      final builder = MqttClientPayloadBuilder();
+      builder.addString(payload);
+      _client!.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!, retain: retain);
+      return true;
     } catch (_) {
       return false;
     }
   }
 
-  static Future<List<String>> pollRelay(String topicSuffix, {bool sinceAll = false}) async {
-    try {
-      final cleanTopic = '${projectTag}_${topicSuffix.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}';
-      final uri = Uri.parse('$relayBaseUrl/$cleanTopic/json?poll=1${sinceAll ? '&since=all' : ''}');
-      final request = await _client.getUrl(uri);
-      final response = await request.close();
-      if (response.statusCode != 200) {
-        await response.drain();
-        return const [];
-      }
-      final body = await utf8.decoder.bind(response).join();
-      final lines = const LineSplitter().convert(body);
-      final messages = <String>[];
-      for (final line in lines) {
-        if (line.trim().isEmpty) continue;
-        try {
-          final json = jsonDecode(line) as Map<String, dynamic>;
-          if (json['event'] == 'message' && json['message'] != null) {
-            messages.add(json['message'] as String);
-          }
-        } catch (_) {}
-      }
-      return messages;
-    } catch (_) {
-      return const [];
-    }
-  }
-
-  static Future<void> _putFirebase(String path, String payload, {String? customUrl}) async {
-    try {
-      final base = (customUrl?.trim().isNotEmpty ?? false) ? customUrl!.trim() : defaultBaseUrl;
-      final uri = Uri.parse('$base/$path.json');
-      final request = await _client.putUrl(uri);
-      request.headers.contentType = ContentType.json;
-      request.write(payload);
-      final response = await request.close();
-      await response.drain();
-    } catch (_) {}
-  }
-
-  static Future<dynamic> _getFirebase(String path, {String? customUrl}) async {
-    try {
-      final base = (customUrl?.trim().isNotEmpty ?? false) ? customUrl!.trim() : defaultBaseUrl;
-      final uri = Uri.parse('$base/$path.json');
-      final request = await _client.getUrl(uri);
-      final response = await request.close();
-      if (response.statusCode != 200) {
-        await response.drain();
-        return null;
-      }
-      final body = await utf8.decoder.bind(response).join();
-      if (body.isEmpty || body == 'null') return null;
-      return jsonDecode(body);
-    } catch (_) {
-      return null;
-    }
+  static Future<bool> testConnection() async {
+    return await ensureConnected();
   }
 
   static Future<bool> registerInvite({
@@ -97,44 +200,29 @@ class FirebaseCoupleSync {
     required String name,
     String? customUrl,
   }) async {
-    if (code.trim().isEmpty) return false;
-    try {
-      final invite = CoupleInvite(
-        code: code,
-        role: role,
-        name: name,
-        matched: false,
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-      );
-      final payload = jsonEncode(invite.toJson());
-      await publishRelay('inv_$code', payload);
-      await _putFirebase('invites/$code', payload, customUrl: customUrl);
-      return true;
-    } catch (_) {
-      return false;
-    }
+    final clean = code.trim().toUpperCase();
+    if (clean.isEmpty) return false;
+    subscribe('her_music/invite/$clean');
+    final invite = CoupleInvite(
+      code: clean,
+      role: role,
+      name: name,
+      matched: false,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+    );
+    _invitesCache[clean] = invite;
+    return await publish('her_music/invite/$clean', jsonEncode(invite.toJson()), retain: true);
   }
 
   static Future<CoupleInvite?> checkInviteMatch(String code, {String? customUrl}) async {
-    if (code.trim().isEmpty) return null;
-    try {
-      final fb = await _getFirebase('invites/$code', customUrl: customUrl);
-      if (fb is Map<String, dynamic>) {
-        final inv = CoupleInvite.fromJson(fb);
-        if (inv.matched && inv.spaceId.isNotEmpty) return inv;
-      }
-      final relayMsgs = await pollRelay('inv_$code');
-      for (final msg in relayMsgs.reversed) {
-        try {
-          final parsed = jsonDecode(msg) as Map<String, dynamic>;
-          final inv = CoupleInvite.fromJson(parsed);
-          if (inv.matched && inv.spaceId.isNotEmpty) return inv;
-        } catch (_) {}
-      }
-      return null;
-    } catch (_) {
-      return null;
+    final clean = code.trim().toUpperCase();
+    if (clean.isEmpty) return null;
+    subscribe('her_music/invite/$clean');
+    final inv = _invitesCache[clean];
+    if (inv != null && inv.matched && inv.spaceId.isNotEmpty) {
+      return inv;
     }
+    return null;
   }
 
   static Future<bool> linkInvite({
@@ -144,45 +232,38 @@ class FirebaseCoupleSync {
     required String myName,
     String? customUrl,
   }) async {
-    if (partnerCode.trim().isEmpty || myCode.trim().isEmpty) return false;
-    try {
-      final space = calculateSpaceId(myCode, partnerCode);
-      final now = DateTime.now().millisecondsSinceEpoch;
+    final pCode = partnerCode.trim().toUpperCase();
+    final mCode = myCode.trim().toUpperCase();
+    if (pCode.isEmpty || mCode.isEmpty) return false;
 
-      final partnerUpdate = CoupleInvite(
-        code: partnerCode,
-        matched: true,
-        partnerCode: myCode,
-        partnerName: myName,
-        partnerRole: myRole,
-        spaceId: space,
-        timestamp: now,
-      );
-      final partnerJson = jsonEncode(partnerUpdate.toJson());
-      await publishRelay('inv_$partnerCode', partnerJson);
-      await _putFirebase('invites/$partnerCode', partnerJson, customUrl: customUrl);
+    final space = calculateSpaceId(mCode, pCode);
+    final now = DateTime.now().millisecondsSinceEpoch;
 
-      final myUpdate = CoupleInvite(
-        code: myCode,
-        role: myRole,
-        name: myName,
-        matched: true,
-        partnerCode: partnerCode,
-        spaceId: space,
-        timestamp: now,
-      );
-      final myJson = jsonEncode(myUpdate.toJson());
-      await publishRelay('inv_$myCode', myJson);
-      await _putFirebase('invites/$myCode', myJson, customUrl: customUrl);
+    final partnerUpdate = CoupleInvite(
+      code: pCode,
+      matched: true,
+      partnerCode: mCode,
+      partnerName: myName,
+      partnerRole: myRole,
+      spaceId: space,
+      timestamp: now,
+    );
+    _invitesCache[pCode] = partnerUpdate;
+    await publish('her_music/invite/$pCode', jsonEncode(partnerUpdate.toJson()), retain: true);
 
-      final spaceInfo = jsonEncode({'spaceId': space, 'createdAt': now});
-      await publishRelay('spc_${space}_info', spaceInfo);
-      await _putFirebase('spaces/$space/info', spaceInfo, customUrl: customUrl);
-
-      return true;
-    } catch (_) {
-      return false;
-    }
+    final myUpdate = CoupleInvite(
+      code: mCode,
+      role: myRole,
+      name: myName,
+      matched: true,
+      partnerCode: pCode,
+      partnerRole: pCode.startsWith('HER') ? 'HER' : 'HIM',
+      spaceId: space,
+      timestamp: now,
+    );
+    _invitesCache[mCode] = myUpdate;
+    await publish('her_music/invite/$mCode', jsonEncode(myUpdate.toJson()), retain: true);
+    return true;
   }
 
   static Future<bool> broadcastLivePlayback(
@@ -190,17 +271,12 @@ class FirebaseCoupleSync {
     CoupleLivePlayback playback, {
     String? customUrl,
   }) async {
-    if (spaceId.trim().isEmpty) return false;
-    try {
-      final roleKey = playback.senderRole.toLowerCase();
-      final payload = jsonEncode(playback.toJson());
-      await publishRelay('spc_${spaceId}_pb_$roleKey', payload);
-      await _putFirebase('spaces/$spaceId/playback_$roleKey', payload, customUrl: customUrl);
-      await _putFirebase('spaces/$spaceId/live_playback', payload, customUrl: customUrl);
-      return true;
-    } catch (_) {
-      return false;
-    }
+    final clean = spaceId.trim();
+    if (clean.isEmpty) return false;
+    final topic = 'her_music/space/$clean/live';
+    subscribe(topic);
+    _liveCache['${clean}_${playback.senderRole.toLowerCase()}'] = playback;
+    return await publish(topic, jsonEncode(playback.toJson()), retain: true);
   }
 
   static Future<CoupleLivePlayback?> fetchPartnerLivePlayback(
@@ -208,24 +284,11 @@ class FirebaseCoupleSync {
     String partnerRole, {
     String? customUrl,
   }) async {
-    if (spaceId.trim().isEmpty) return null;
-    try {
-      final roleKey = partnerRole.toLowerCase();
-      final fb = await _getFirebase('spaces/$spaceId/playback_$roleKey', customUrl: customUrl);
-      if (fb is Map<String, dynamic>) {
-        return CoupleLivePlayback.fromJson(fb);
-      }
-      final msgs = await pollRelay('spc_${spaceId}_pb_$roleKey');
-      if (msgs.isNotEmpty) {
-        try {
-          final parsed = jsonDecode(msgs.last) as Map<String, dynamic>;
-          return CoupleLivePlayback.fromJson(parsed);
-        } catch (_) {}
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
+    final clean = spaceId.trim();
+    if (clean.isEmpty) return null;
+    final topic = 'her_music/space/$clean/live';
+    subscribe(topic);
+    return _liveCache['${clean}_${partnerRole.toLowerCase()}'];
   }
 
   static Future<bool> sendChatMessage(
@@ -233,51 +296,27 @@ class FirebaseCoupleSync {
     CoupleChatMessage message, {
     String? customUrl,
   }) async {
-    if (spaceId.trim().isEmpty) return false;
-    try {
-      final payload = jsonEncode(message.toJson());
-      await publishRelay('spc_${spaceId}_chat', payload);
-      await _putFirebase('spaces/$spaceId/messages/${message.id}', payload, customUrl: customUrl);
-      return true;
-    } catch (_) {
-      return false;
+    final clean = spaceId.trim();
+    if (clean.isEmpty) return false;
+    final topic = 'her_music/space/$clean/chat';
+    subscribe(topic);
+    final list = _chatCache[clean] ?? <CoupleChatMessage>[];
+    if (!list.any((m) => m.id == message.id)) {
+      list.add(message);
+      _chatCache[clean] = list;
     }
+    return await publish(topic, jsonEncode(message.toJson()));
   }
 
   static Future<List<CoupleChatMessage>> fetchChatMessages(
     String spaceId, {
     String? customUrl,
   }) async {
-    if (spaceId.trim().isEmpty) return const [];
-    final map = <String, CoupleChatMessage>{};
-    try {
-      final fb = await _getFirebase('spaces/$spaceId/messages', customUrl: customUrl);
-      if (fb is Map<String, dynamic>) {
-        fb.forEach((key, val) {
-          if (val is Map<String, dynamic>) {
-            try {
-              final msg = CoupleChatMessage.fromJson(val);
-              map[msg.id] = msg;
-            } catch (_) {}
-          }
-        });
-      }
-
-      final relayMsgs = await pollRelay('spc_${spaceId}_chat', sinceAll: true);
-      for (final line in relayMsgs) {
-        try {
-          final parsed = jsonDecode(line) as Map<String, dynamic>;
-          final msg = CoupleChatMessage.fromJson(parsed);
-          map[msg.id] = msg;
-        } catch (_) {}
-      }
-
-      final list = map.values.toList()
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-      return list;
-    } catch (_) {
-      return map.values.toList();
-    }
+    final clean = spaceId.trim();
+    if (clean.isEmpty) return const [];
+    final topic = 'her_music/space/$clean/chat';
+    subscribe(topic);
+    return _chatCache[clean] ?? const [];
   }
 
   static Future<bool> pushSong(
@@ -285,37 +324,41 @@ class FirebaseCoupleSync {
     CouplePushSong song, {
     String? customUrl,
   }) async {
-    if (spaceId.trim().isEmpty) return false;
-    try {
-      final payload = jsonEncode(song.toJson());
-      await publishRelay('spc_${spaceId}_push', payload);
-      await _putFirebase('spaces/$spaceId/push_song', payload, customUrl: customUrl);
-      return true;
-    } catch (_) {
-      return false;
-    }
+    final clean = spaceId.trim();
+    if (clean.isEmpty) return false;
+    final topic = 'her_music/space/$clean/push';
+    subscribe(topic);
+    _pushCache[clean] = song;
+    return await publish(topic, jsonEncode(song.toJson()), retain: true);
   }
 
   static Future<CouplePushSong?> fetchLatestPushSong(
     String spaceId, {
     String? customUrl,
   }) async {
-    if (spaceId.trim().isEmpty) return null;
-    try {
-      final fb = await _getFirebase('spaces/$spaceId/push_song', customUrl: customUrl);
-      if (fb is Map<String, dynamic>) {
-        return CouplePushSong.fromJson(fb);
-      }
-      final msgs = await pollRelay('spc_${spaceId}_push');
-      if (msgs.isNotEmpty) {
-        try {
-          final parsed = jsonDecode(msgs.last) as Map<String, dynamic>;
-          return CouplePushSong.fromJson(parsed);
-        } catch (_) {}
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
+    final clean = spaceId.trim();
+    if (clean.isEmpty) return null;
+    final topic = 'her_music/space/$clean/push';
+    subscribe(topic);
+    return _pushCache[clean];
+  }
+
+  static Future<bool> broadcastDeviceSync(DeviceSyncPayload payload) async {
+    if (payload.email.trim().isEmpty) return false;
+    final hash = hashEmail(payload.email);
+    final topic = 'her_music/user/$hash/device_sync';
+    subscribe(topic);
+    _deviceCache[payload.email] = payload;
+    return await publish(topic, jsonEncode(payload.toJson()), retain: true);
+  }
+
+  static void subscribeDeviceSync(String email) {
+    if (email.trim().isEmpty) return;
+    final hash = hashEmail(email);
+    subscribe('her_music/user/$hash/device_sync');
+  }
+
+  static DeviceSyncPayload? getLatestDeviceSync(String email) {
+    return _deviceCache[email];
   }
 }
