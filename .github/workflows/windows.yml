@@ -1,0 +1,71 @@
+name: Build and Release Windows App
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. 1.0.0)'
+        required: false
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows EXE Installer & Portable
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Write .env from secrets
+        run: echo "ADDON_CLIENT_SECRET=${{ secrets.ADDON_CLIENT_SECRET }}" > .env
+
+      - name: Generate Obfuscated Secrets
+        run: dart tool/obfuscate_secrets.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows app
+        run: flutter build windows --release
+
+      - name: Build Inno Setup Installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $rawVer = if ('${{ github.event.inputs.version }}') { '${{ github.event.inputs.version }}' } elseif ('${{ github.ref_name }}'.StartsWith('v')) { '${{ github.ref_name }}'.TrimStart('v') } else { "1.0.0" }
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DMyAppVersion=$rawVer" windows\installer.iss
+          Get-ChildItem build\windows\installer\
+
+      - name: Build Windows portable zip
+        shell: pwsh
+        run: |
+          $rawVer = if ('${{ github.event.inputs.version }}') { '${{ github.event.inputs.version }}' } elseif ('${{ github.ref_name }}'.StartsWith('v')) { '${{ github.ref_name }}'.TrimStart('v') } else { "1.0.0" }
+          $zip = "her_music_${rawVer}_windows-x86_64-portable.zip"
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath $zip -Force
+          Get-ChildItem $zip
+
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $installer = Get-Item build\windows\installer\*.exe
+          Write-Host "Uploading installer: $($installer.FullName)"
+          gh release upload v1.0.0 "$($installer.FullName)" --clobber
+          $portable = Get-Item her_music_*_windows-x86_64-portable.zip
+          Write-Host "Uploading portable: $($portable.FullName)"
+          gh release upload v1.0.0 "$($portable.FullName)" --clobber
